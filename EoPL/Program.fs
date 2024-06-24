@@ -2,7 +2,11 @@
 open LetLang
 
 // get text from console
-let programText = System.Console.ReadLine()
+// read until ;; is entered
+let rec readProgramText (acc: string) =
+    let line = System.Console.ReadLine()
+    if line = ";;" then acc else readProgramText (acc + line + "\n")
+let programText = readProgramText ""
 
 // parse the program
 let program = parseProgram programText
