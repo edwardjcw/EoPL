@@ -1,5 +1,7 @@
 ﻿open Parser
-open LetLang
+open Tests
+
+runTests()
 
 // get text from console
 // read until ;; is entered

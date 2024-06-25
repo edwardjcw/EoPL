@@ -8,11 +8,13 @@
   <ItemGroup>
     <Compile Include="LetLang.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="FsUnit" Version="6.0.0" />
   </ItemGroup>
 
 </Project>

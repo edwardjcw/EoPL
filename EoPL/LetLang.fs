@@ -13,13 +13,24 @@ type Env =
             | Extend(savedVar, savedValue, _) when savedVar = searchVar -> savedValue
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
 
-// ExpVal = INT + BOOL
+// Exercise 3.9
+and ValList =
+    | Empty
+    | Cons of head:ExpVal * tail:ValList
+    with 
+        static member car = function | ValList.Cons(head, _) -> head | _ -> failwith "Expected ValList.Cons. Bad transform."
+        static member cdr = function | ValList.Cons(_, tail) -> tail | _ -> failwith "Expected ValList.Cons. Bad transform."
+        static member isNull = function | ValList.Empty -> ExpVal.Bool true | _ -> ExpVal.Bool false
+
+// ExpVal = INT + BOOL + LIST
 and ExpVal =
     | Num of int
     | Bool of bool
+    | List of ValList                               // Exercise 3.9
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
         static member toBool = function | ExpVal.Bool b -> b | _ -> failwith "Expected ExpVal.Bool. Bad transform."
+        static member toList = function | ExpVal.List l -> l | _ -> failwith "Expected ExpVal.List. Bad transform."     // Exercise 3.9
 
 and Exp =
     | Const of num:int
@@ -28,6 +39,18 @@ and Exp =
     | Diff of exp1:Exp * exp2:Exp
     | Var of var:Var
     | Let of var:Var * exp1:Exp * body:Exp
+    | Minus of exp:Exp                                  // Exercise 3.6
+    | Add of exp1:Exp * exp2:Exp                        // Exercise 3.7
+    | Mult of exp1:Exp * exp2:Exp                       // Exercise 3.7
+    | IntDiv of exp1:Exp * exp2:Exp                     // Exercise 3.7
+    | IsEqual of exp1:Exp * exp2:Exp                    // Exercise 3.8
+    | IsGreater of exp1:Exp * exp2:Exp                  // Exercise 3.8
+    | IsLess of exp1:Exp * exp2:Exp                     // Exercise 3.8
+    | Cons of head:Exp * tail:Exp                       // Exercise 3.9
+    | Car of exp:Exp                                    // Exercise 3.9
+    | Cdr of exp:Exp                                    // Exercise 3.9
+    | IsNull of exp:Exp                                 // Exercise 3.9
+    | EmptyList                                         // Exercise 3.9
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -48,6 +71,48 @@ and Exp =
                 let value = Exp.valueOf env exp1
                 let env1 = Env.Extend(var, value, env)
                 Exp.valueOf env1 body
+            | Exp.Minus exp ->                      // Exercise 3.6
+                let num = Exp.valueOf env exp |> ExpVal.toNum
+                ExpVal.Num (-num)
+            | Exp.Add(exp1, exp2) ->                // Exercise 3.7
+                let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
+                let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
+                ExpVal.Num (num1 + num2)
+            | Exp.Mult(exp1, exp2) ->               // Exercise 3.7
+                let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
+                let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
+                ExpVal.Num (num1 * num2)
+            | Exp.IntDiv(exp1, exp2) ->             // Exercise 3.7
+                let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
+                let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
+                ExpVal.Num (num1 / num2)
+            | Exp.IsEqual(exp1, exp2) ->            // Exercise 3.8
+                let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
+                let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
+                ExpVal.Bool (num1 = num2)
+            | Exp.IsGreater(exp1, exp2) ->          // Exercise 3.8
+                let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
+                let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
+                ExpVal.Bool (num1 > num2)
+            | Exp.IsLess(exp1, exp2) ->             // Exercise 3.8
+                let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
+                let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
+                ExpVal.Bool (num1 < num2)
+            | Exp.Cons(head, tail) ->               // Exercise 3.9
+                let headVal = Exp.valueOf env head
+                let tailVal = Exp.valueOf env tail
+                ExpVal.List (ValList.Cons(headVal, tailVal |> ExpVal.toList))
+            | Exp.Car exp ->                        // Exercise 3.9 
+                let listVal = Exp.valueOf env exp |> ExpVal.toList
+                ValList.car listVal
+            | Exp.Cdr exp ->                        // Exercise 3.9 
+                let listVal = Exp.valueOf env exp |> ExpVal.toList
+                ExpVal.List (ValList.cdr listVal)
+            | Exp.IsNull exp ->                     // Exercise 3.9 
+                let listVal = Exp.valueOf env exp |> ExpVal.toList
+                ValList.isNull listVal
+            | Exp.EmptyList ->                      // Exercise 3.9 
+                ExpVal.List ValList.Empty
 
 [<RequireQualifiedAccess>]
 type Program =
