@@ -13,20 +13,11 @@ type Env =
             | Extend(savedVar, savedValue, _) when savedVar = searchVar -> savedValue
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
 
-// Exercise 3.9
-and ValList =
-    | Empty
-    | Cons of head:ExpVal * tail:ValList
-    with 
-        static member car = function | ValList.Cons(head, _) -> head | _ -> failwith "Expected ValList.Cons. Bad transform."
-        static member cdr = function | ValList.Cons(_, tail) -> tail | _ -> failwith "Expected ValList.Cons. Bad transform."
-        static member isNull = function | ValList.Empty -> ExpVal.Bool true | _ -> ExpVal.Bool false
-
 // ExpVal = INT + BOOL + LIST
 and ExpVal =
     | Num of int
     | Bool of bool
-    | List of ValList                               // Exercise 3.9
+    | List of ExpVal list                            // Exercise 3.9
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
         static member toBool = function | ExpVal.Bool b -> b | _ -> failwith "Expected ExpVal.Bool. Bad transform."
@@ -101,18 +92,18 @@ and Exp =
             | Exp.Cons(head, tail) ->               // Exercise 3.9
                 let headVal = Exp.valueOf env head
                 let tailVal = Exp.valueOf env tail
-                ExpVal.List (ValList.Cons(headVal, tailVal |> ExpVal.toList))
+                ExpVal.List (headVal::(tailVal |> ExpVal.toList))
             | Exp.Car exp ->                        // Exercise 3.9 
                 let listVal = Exp.valueOf env exp |> ExpVal.toList
-                ValList.car listVal
+                listVal |> List.head
             | Exp.Cdr exp ->                        // Exercise 3.9 
                 let listVal = Exp.valueOf env exp |> ExpVal.toList
-                ExpVal.List (ValList.cdr listVal)
+                listVal |> List.tail |> ExpVal.List
             | Exp.IsNull exp ->                     // Exercise 3.9 
                 let listVal = Exp.valueOf env exp |> ExpVal.toList
-                ValList.isNull listVal
+                listVal |> List.isEmpty |> ExpVal.Bool
             | Exp.EmptyList ->                      // Exercise 3.9 
-                ExpVal.List ValList.Empty
+                ExpVal.List List.empty
 
 [<RequireQualifiedAccess>]
 type Program =

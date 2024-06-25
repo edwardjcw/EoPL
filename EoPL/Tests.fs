@@ -72,7 +72,7 @@ let ``parse isLess`` () =
 let ``parse cons`` () =
     let programText = "cons(1, emptylist)"
     let program = parseProgram programText
-    program |> should equal (ExpVal.List (ValList.Cons (ExpVal.Num 1, ValList.Empty)))
+    program |> should equal (ExpVal.List [ExpVal.Num 1])
 
 let ``parse car`` () =
     let programText = "car(cons(1, emptylist))"
@@ -82,7 +82,7 @@ let ``parse car`` () =
 let ``parse cdr`` () =
     let programText = "cdr(cons(1, emptylist))"
     let program = parseProgram programText
-    program |> should equal (ExpVal.List ValList.Empty)
+    program |> should equal (ExpVal.List [])
 
 let ``parse isNull`` () =
     let programText = "null?(emptylist)"
@@ -92,7 +92,7 @@ let ``parse isNull`` () =
 let ``parse emptyList`` () =
     let programText = "emptylist"
     let program = parseProgram programText
-    program |> should equal (ExpVal.List ValList.Empty)
+    program |> should equal (ExpVal.List [])
 
 let runTests () =
     let tests = 
