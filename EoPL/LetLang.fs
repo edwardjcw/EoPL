@@ -27,6 +27,7 @@ and Exp =
     | Const of num:int
     | IsZero of exp1:Exp
     | If of exp1:Exp * exp2:Exp * exp3:Exp
+    | Cond of List<(Exp * Exp)>                         // Exercise 3.12
     | Diff of exp1:Exp * exp2:Exp
     | Var of var:Var
     | Let of var:Var * exp1:Exp * body:Exp
@@ -42,6 +43,7 @@ and Exp =
     | Cdr of exp:Exp                                    // Exercise 3.9
     | IsNull of exp:Exp                                 // Exercise 3.9
     | EmptyList                                         // Exercise 3.9
+    | List of Exp list                                  // Exercise 3.10
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -52,6 +54,12 @@ and Exp =
             | Exp.If(exp1, exp2, exp3) ->
                 let bool = Exp.valueOf env exp1 |> ExpVal.toBool
                 if bool then Exp.valueOf env exp2 else Exp.valueOf env exp3
+            | Exp.Cond conds ->                         // Exercise 3.12 
+                conds
+                |> List.map (fun (cond, exp) -> (Exp.valueOf env cond |> ExpVal.toBool, exp))
+                |> List.tryFind (fun (bool, _) -> bool)
+                |> Option.map (fun (_, exp) -> Exp.valueOf env exp)
+                |> function Some(x) -> x | None -> failwith "No true condition found." 
             | Exp.Diff(exp1, exp2) ->
                 let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
                 let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
@@ -104,6 +112,9 @@ and Exp =
                 listVal |> List.isEmpty |> ExpVal.Bool
             | Exp.EmptyList ->                      // Exercise 3.9 
                 ExpVal.List List.empty
+            | Exp.List exps ->                      // Exercise 3.10 
+                let listVal = exps |> List.map (Exp.valueOf env)
+                ExpVal.List listVal
 
 [<RequireQualifiedAccess>]
 type Program =

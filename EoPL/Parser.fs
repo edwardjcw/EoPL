@@ -10,17 +10,23 @@ let skipStrWs s = skipString s >>. ws
 let pipe6 p1 p2 p3 p4 p5 p6 f = pipe4 p1 p2 p3 (tuple3 p4 p5 p6) (fun a b c (d, e, g) -> f a b c d e g)
 
 let pinteger : Parser<int, unit> = pint32 |>> int
-let constExp : Parser<Exp, unit> = pinteger |>> Exp.Const
+let constExp : Parser<Exp, unit> = pinteger .>> ws |>> Exp.Const
 let pvar : Parser<Var, unit> = many1Satisfy isLetter |>> string
-let varExp : Parser<Exp, unit> = pvar |>> Exp.Var
+let varExp : Parser<Exp, unit> = pvar .>> ws |>> Exp.Var
 
 let pexp, pexpRef = createParserForwardedToRef<Exp, unit>()
 
 let letExp = skipStrWs "let" >>. pvar .>> ws .>> skipStrWs "=" .>>. pexp .>> ws .>> skipStrWs "in" .>>. pexp |>> (fun ((var, exp1), body) -> Exp.Let(var, exp1, body))
 
 let ifExp = skipStrWs "if" >>. pexp .>> ws .>> skipStrWs "then" .>>. pexp .>> ws .>> skipStrWs "else" .>>. pexp |>> (fun ((exp1, exp2), exp3) -> Exp.If(exp1, exp2, exp3))
+let condExp = skipStrWs "cond" >>. many1 (skipStrWs "(" >>. pexp .>> skipStrWs "==>" .>>. pexp .>> skipStrWs ")") .>> skipStrWs "end" |>> Exp.Cond
+let conditionalExp = 
+    choice [
+        ifExp
+        condExp
+    ]
 
-let isZeroExp : Parser<Exp, unit> = skipStrWs "zero?" >>. pexp |>> Exp.IsZero
+let isZeroExp : Parser<Exp, unit> = skipStrWs "zero?(" >>. pexp .>> skipStrWs ")" |>> Exp.IsZero
 let minusExp = between (skipStrWs "minus(") (skipStrWs ")") pexp |>> Exp.Minus
 let addExp = skipStrWs "+(" >>. pexp .>> ws .>> skipStrWs "," .>>. pexp .>> skipStrWs ")" |>> (fun (exp1, exp2) -> Exp.Add(exp1, exp2))
 let diffExp = skipStrWs "-(" >>. pexp .>> ws .>> skipStrWs "," .>>. pexp .>> skipStrWs ")" |>> (fun (exp1, exp2) -> Exp.Diff(exp1, exp2))
@@ -47,6 +53,7 @@ let carExp = skipStrWs "car(" >>. pexp .>> skipStrWs ")" |>> Exp.Car
 let cdrExp = skipStrWs "cdr(" >>. pexp .>> skipStrWs ")" |>> Exp.Cdr
 let isNullExp = skipStrWs "null?(" >>. pexp .>> skipStrWs ")" |>> Exp.IsNull
 let emptyListExp : Parser<Exp, unit> = strWs "emptylist" |>> (fun _ -> Exp.EmptyList)
+let listExp = skipStrWs "list(" >>. sepBy pexp (skipStrWs ",") .>> skipStrWs ")" |>> Exp.List
 let listOpExp =
     choice [
         consExp
@@ -54,12 +61,13 @@ let listOpExp =
         cdrExp
         isNullExp
         emptyListExp
+        listExp
     ]
 
 let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
-        ifExp
+        conditionalExp
         letExp
         mathOpExp
         listOpExp

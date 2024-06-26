@@ -20,12 +20,17 @@ let ``parse diff`` () =
     program |> should equal (ExpVal.Num -1)
 
 let ``parse isZero`` () =
-    let programText = "zero? 0"
+    let programText = "zero?(0)"
     let program = parseProgram programText
     program |> should equal (ExpVal.Bool true)
 
 let ``parse if`` () =
-    let programText = "if zero? 0 then 1 else 2"
+    let programText = "if zero?(0) then 1 else 2"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
+let ``parse cond`` () =
+    let programText = "cond (zero?(0) ==> 1) end"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
@@ -94,6 +99,11 @@ let ``parse emptyList`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.List [])
 
+let ``parse list`` () =
+    let programText = "list(1, 2, 3)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.List [ExpVal.Num 1; ExpVal.Num 2; ExpVal.Num 3])
+
 let runTests () =
     let tests = 
         [ 
@@ -102,6 +112,7 @@ let runTests () =
             ``parse diff``
             ``parse isZero``
             ``parse if``
+            ``parse cond``
             ``parse let``
             ``parse minus``
             ``parse add``
@@ -115,6 +126,7 @@ let runTests () =
             ``parse cdr``
             ``parse isNull``
             ``parse emptyList``
+            ``parse list``
         ]
     tests |> List.iter (fun test -> test())
 
