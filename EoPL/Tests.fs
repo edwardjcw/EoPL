@@ -10,7 +10,7 @@ let ``parse const`` () =
     program |> should equal (ExpVal.Num 1)
 
 let ``parse var`` () =
-    let programText = "let (x = 1) in x"
+    let programText = "let [x = 1] in x"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
@@ -35,9 +35,19 @@ let ``parse cond`` () =
     program |> should equal (ExpVal.Num 1)
 
 let ``parse let`` () =
-    let programText = "let (x = 30) in let (x = -(x,1)) (y = -(x,2)) in -(x,y)"
+    let programText = "let [x = 30] in let [x = -(x,1)] [y = -(x,2)] in -(x,y)"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
+
+let ``parse let*`` () =
+    let programText = "let* [x = 30] [y = -(x,1)] in -(x,y)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
+let ``parse unpack`` () =
+    let programText = "let [x = cons(1, cons(2, emptylist))] in unpack [a b = x] in -(a,b)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num -1)
 
 let ``parse minus`` () =
     let programText = "minus(1)"
@@ -75,9 +85,9 @@ let ``parse isLess`` () =
     program |> should equal (ExpVal.Bool true)
 
 let ``parse cons`` () =
-    let programText = "cons(1, emptylist)"
+    let programText = "cons(1, cons(2, emptylist))"
     let program = parseProgram programText
-    program |> should equal (ExpVal.List [ExpVal.Num 1])
+    program |> should equal (ExpVal.List [ExpVal.Num 1; ExpVal.Num 2])
 
 let ``parse car`` () =
     let programText = "car(cons(1, emptylist))"
@@ -114,6 +124,8 @@ let runTests () =
             ``parse if``
             ``parse cond``
             ``parse let``
+            ``parse let*``
+            ``parse unpack``
             ``parse minus``
             ``parse add``
             ``parse mult``

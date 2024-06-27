@@ -16,7 +16,15 @@ let varExp : Parser<Exp, unit> = pvar |>> Exp.Var
 
 let pexp, pexpRef = createParserForwardedToRef<Exp, unit>()
 
-let letExp = skipStrWs "let" >>. many1 (skipStrWs "(" >>. pvar .>> ws .>> skipStrWs "=" .>>. pexp .>> skipStrWs ")") .>> ws .>> skipStrWs "in" .>>. pexp |>> Exp.Let
+let letExp = skipStrWs "let" >>. many1 (skipStrWs "[" >>. pvar .>> ws .>> skipStrWs "=" .>>. pexp .>> ws .>> skipStrWs "]") .>> ws .>> skipStrWs "in" .>>. pexp |>> Exp.Let
+let letStarExp = skipStrWs "let*" >>. many1 (skipStrWs "[" >>. pvar .>> ws .>> skipStrWs "=" .>>. pexp .>> ws .>> skipStrWs "]") .>> ws .>> skipStrWs "in" .>>. pexp |>> Exp.LetStar
+let unpackExp = skipStrWs "unpack" >>. skipStrWs "[" >>. many1 pvar .>> ws .>> skipStrWs "=" .>>. pexp .>> ws .>> skipStrWs "]" .>> ws .>> skipStrWs "in" .>>. pexp |>> (fun ((vars, exp1), exp2) -> Exp.Unpack(vars, exp1, exp2))
+let letTypeExp =
+    choice [
+        letStarExp
+        letExp
+        unpackExp
+    ]
 
 let ifExp = skipStrWs "if" >>. pexp .>> ws .>> skipStrWs "then" .>>. pexp .>> ws .>> skipStrWs "else" .>>. pexp |>> (fun ((exp1, exp2), exp3) -> Exp.If(exp1, exp2, exp3))
 let condExp = skipStrWs "cond" >>. many1 (skipStrWs "(" >>. pexp .>> skipStrWs "==>" .>>. pexp .>> skipStrWs ")") .>> skipStrWs "end" |>> Exp.Cond
@@ -68,7 +76,7 @@ let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
         conditionalExp
-        letExp
+        letTypeExp
         mathOpExp
         listOpExp
         constExp

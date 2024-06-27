@@ -31,6 +31,8 @@ and Exp =
     | Diff of exp1:Exp * exp2:Exp
     | Var of var:Var
     | Let of (Var * Exp) list * body:Exp                // Exercise 3.16 modified
+    | LetStar of (Var * Exp) list * body:Exp            // Exercise 3.17
+    | Unpack of Var list * Exp * body:Exp               // Exercise 3.18
     | Minus of exp:Exp                                  // Exercise 3.6
     | Add of exp1:Exp * exp2:Exp                        // Exercise 3.7
     | Mult of exp1:Exp * exp2:Exp                       // Exercise 3.7
@@ -69,6 +71,14 @@ and Exp =
             | Exp.Let(exps, body) ->                // Exercise 3.16 modified
                 let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
                 let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) env
+                Exp.valueOf env1 body
+            | Exp.LetStar(exps, body) ->            // Exercise 3.17 
+                let env1 = exps |> List.fold (fun acc (var, exp) -> Env.Extend(var, Exp.valueOf acc exp, acc)) env
+                Exp.valueOf env1 body
+            | Exp.Unpack(vars, exp, body) ->        // Exercise 3.18 
+                let listVal = Exp.valueOf env exp |> ExpVal.toList
+                if List.length vars <> List.length listVal then failwith "Unpack: vars and listVal have different lengths."
+                let env1 = listVal |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) env
                 Exp.valueOf env1 body
             | Exp.Minus exp ->                      // Exercise 3.6
                 let num = Exp.valueOf env exp |> ExpVal.toNum
