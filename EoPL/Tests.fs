@@ -10,7 +10,7 @@ let ``parse const`` () =
     program |> should equal (ExpVal.Num 1)
 
 let ``parse var`` () =
-    let programText = "let x = 1 in x"
+    let programText = "let (x = 1) in x"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
@@ -35,7 +35,7 @@ let ``parse cond`` () =
     program |> should equal (ExpVal.Num 1)
 
 let ``parse let`` () =
-    let programText = "let x = 1 in let y = 2 in x"
+    let programText = "let (x = 30) in let (x = -(x,1)) (y = -(x,2)) in -(x,y)"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 

@@ -10,13 +10,13 @@ let skipStrWs s = skipString s >>. ws
 let pipe6 p1 p2 p3 p4 p5 p6 f = pipe4 p1 p2 p3 (tuple3 p4 p5 p6) (fun a b c (d, e, g) -> f a b c d e g)
 
 let pinteger : Parser<int, unit> = pint32 |>> int
-let constExp : Parser<Exp, unit> = pinteger .>> ws |>> Exp.Const
+let constExp : Parser<Exp, unit> = pinteger |>> Exp.Const
 let pvar : Parser<Var, unit> = many1Satisfy isLetter |>> string
-let varExp : Parser<Exp, unit> = pvar .>> ws |>> Exp.Var
+let varExp : Parser<Exp, unit> = pvar |>> Exp.Var
 
 let pexp, pexpRef = createParserForwardedToRef<Exp, unit>()
 
-let letExp = skipStrWs "let" >>. pvar .>> ws .>> skipStrWs "=" .>>. pexp .>> ws .>> skipStrWs "in" .>>. pexp |>> (fun ((var, exp1), body) -> Exp.Let(var, exp1, body))
+let letExp = skipStrWs "let" >>. many1 (skipStrWs "(" >>. pvar .>> ws .>> skipStrWs "=" .>>. pexp .>> skipStrWs ")") .>> ws .>> skipStrWs "in" .>>. pexp |>> Exp.Let
 
 let ifExp = skipStrWs "if" >>. pexp .>> ws .>> skipStrWs "then" .>>. pexp .>> ws .>> skipStrWs "else" .>>. pexp |>> (fun ((exp1, exp2), exp3) -> Exp.If(exp1, exp2, exp3))
 let condExp = skipStrWs "cond" >>. many1 (skipStrWs "(" >>. pexp .>> skipStrWs "==>" .>>. pexp .>> skipStrWs ")") .>> skipStrWs "end" |>> Exp.Cond

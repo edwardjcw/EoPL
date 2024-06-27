@@ -27,10 +27,10 @@ and Exp =
     | Const of num:int
     | IsZero of exp1:Exp
     | If of exp1:Exp * exp2:Exp * exp3:Exp
-    | Cond of List<(Exp * Exp)>                         // Exercise 3.12
+    | Cond of (Exp * Exp) list                          // Exercise 3.12
     | Diff of exp1:Exp * exp2:Exp
     | Var of var:Var
-    | Let of var:Var * exp1:Exp * body:Exp
+    | Let of (Var * Exp) list * body:Exp                // Exercise 3.16 modified
     | Minus of exp:Exp                                  // Exercise 3.6
     | Add of exp1:Exp * exp2:Exp                        // Exercise 3.7
     | Mult of exp1:Exp * exp2:Exp                       // Exercise 3.7
@@ -66,9 +66,9 @@ and Exp =
                 ExpVal.Num (num1 - num2)
             | Exp.Var var ->
                 Env.apply var env
-            | Exp.Let(var, exp1, body) ->
-                let value = Exp.valueOf env exp1
-                let env1 = Env.Extend(var, value, env)
+            | Exp.Let(exps, body) ->                // Exercise 3.16 modified
+                let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
+                let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) env
                 Exp.valueOf env1 body
             | Exp.Minus exp ->                      // Exercise 3.6
                 let num = Exp.valueOf env exp |> ExpVal.toNum
