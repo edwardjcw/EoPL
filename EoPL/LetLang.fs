@@ -1,8 +1,7 @@
 ﻿module LetLang
 
-open System.Diagnostics
-
 type Var = string
+type Vars = Var list
 
 [<RequireQualifiedAccess>]
 type Env =
@@ -16,10 +15,10 @@ type Env =
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
 
 and Proc =
-    | Procedure of Var * Exp * Env              // pg. 79
+    | Procedure of Vars * Exp * Env                 // Exercise 3.21 modified
     with 
-        static member applyProcedure (Proc.Procedure(var, body, savedEnv)) arg =
-            let env1 = Env.Extend(var, arg, savedEnv)
+        static member applyProcedure (Proc.Procedure(vars, body, savedEnv)) args =
+            let env1 = args |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) savedEnv
             Exp.valueOf env1 body
 
 // ExpVal = INT + BOOL + LIST + PROC
@@ -43,7 +42,7 @@ and Exp =
     | Var of var:Var
     | Let of (Var * Exp) list * body:Exp                // Exercise 3.16 modified
     | LetStar of (Var * Exp) list * body:Exp            // Exercise 3.17
-    | Unpack of Var list * Exp * body:Exp               // Exercise 3.18
+    | Unpack of Vars * Exp * body:Exp                   // Exercise 3.18
     | Minus of exp:Exp                                  // Exercise 3.6
     | Add of exp1:Exp * exp2:Exp                        // Exercise 3.7
     | Mult of exp1:Exp * exp2:Exp                       // Exercise 3.7
@@ -57,9 +56,9 @@ and Exp =
     | IsNull of exp:Exp                                 // Exercise 3.9
     | EmptyList                                         // Exercise 3.9
     | List of Exp list                                  // Exercise 3.10
-    | Proc of Var * body:Exp                            // pg. 80
-    | Call of rator:Exp * rand:Exp                      // pg. 80
-    | LetProc of Var * Var * Exp * Exp                  // Exercise 3.19
+    | Proc of Vars * body:Exp                           // Exercise 3.21 modified
+    | Call of rator:Exp * rands:Exp list                // Exercise 3.21 modified
+    | LetProc of Var * Vars * Exp * Exp                 // Exercise 3.21 modified
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -139,14 +138,14 @@ and Exp =
             | Exp.List exps ->                      // Exercise 3.10 
                 let listVal = exps |> List.map (Exp.valueOf env)
                 ExpVal.List listVal
-            | Exp.Proc (var, body) ->               // pg. 80
-                ExpVal.Proc (Proc.Procedure(var, body, env))
-            | Exp.Call (rator, rand) ->             // pg. 80
+            | Exp.Proc (vars, body) ->              // Exercise 3.21 modified
+                ExpVal.Proc (Proc.Procedure(vars, body, env))
+            | Exp.Call (rator, rands) ->            // Exercise 3.21 modified
                 let proc = Exp.valueOf env rator |> ExpVal.toProc
-                let arg = Exp.valueOf env rand
-                Proc.applyProcedure proc arg
-            | Exp.LetProc (var, procVar, procBody, body) -> // Exercise 3.19
-                let proc = Proc.Procedure(procVar, procBody, env)
+                let args = rands |> List.map (Exp.valueOf env)
+                Proc.applyProcedure proc args
+            | Exp.LetProc (var, procVars, procBody, body) -> // Exercise 3.21 modified
+                let proc = Proc.Procedure(procVars, procBody, env)
                 let env1 = Env.Extend(var, ExpVal.Proc proc, env)
                 Exp.valueOf env1 body
 

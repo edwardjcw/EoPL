@@ -115,14 +115,14 @@ let ``parse list`` () =
     program |> should equal (ExpVal.List [ExpVal.Num 1; ExpVal.Num 2; ExpVal.Num 3])
 
 let ``parse procCall`` () =
-    let programText = "(proc (x) x 1)"
+    let programText = "(proc (x, y) list(x,y) 1 2)"
     let program = parseProgram programText
-    program |> should equal (ExpVal.Num 1)
+    program |> should equal (ExpVal.List [ExpVal.Num 1; ExpVal.Num 2])
 
 let ``parse letproc`` () =
-    let programText = "letproc f (x) = x in (f 1)"
+    let programText = "letproc f (x, y) = list(x,y) in (f 1 2)"
     let program = parseProgram programText
-    program |> should equal (ExpVal.Num 1)
+    program |> should equal (ExpVal.List [ExpVal.Num 1; ExpVal.Num 2])
 
 let runTests () =
     let tests = 
