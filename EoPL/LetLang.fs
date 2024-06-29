@@ -1,5 +1,7 @@
 ﻿module LetLang
 
+open System.Diagnostics
+
 type Var = string
 
 [<RequireQualifiedAccess>]
@@ -13,15 +15,24 @@ type Env =
             | Extend(savedVar, savedValue, _) when savedVar = searchVar -> savedValue
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
 
-// ExpVal = INT + BOOL + LIST
+and Proc =
+    | Procedure of Var * Exp * Env              // pg. 79
+    with 
+        static member applyProcedure (Proc.Procedure(var, body, savedEnv)) arg =
+            let env1 = Env.Extend(var, arg, savedEnv)
+            Exp.valueOf env1 body
+
+// ExpVal = INT + BOOL + LIST + PROC
 and ExpVal =
     | Num of int
     | Bool of bool
     | List of ExpVal list                            // Exercise 3.9
+    | Proc of Proc                                   // pg 79
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
         static member toBool = function | ExpVal.Bool b -> b | _ -> failwith "Expected ExpVal.Bool. Bad transform."
         static member toList = function | ExpVal.List l -> l | _ -> failwith "Expected ExpVal.List. Bad transform."     // Exercise 3.9
+        static member toProc = function | ExpVal.Proc p -> p | _ -> failwith "Expected ExpVal.Proc. Bad transform."    // pg. 79
 
 and Exp =
     | Const of num:int
@@ -46,6 +57,9 @@ and Exp =
     | IsNull of exp:Exp                                 // Exercise 3.9
     | EmptyList                                         // Exercise 3.9
     | List of Exp list                                  // Exercise 3.10
+    | Proc of Var * body:Exp                            // pg. 80
+    | Call of rator:Exp * rand:Exp                      // pg. 80
+    | LetProc of Var * Var * Exp * Exp                  // Exercise 3.19
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -125,6 +139,16 @@ and Exp =
             | Exp.List exps ->                      // Exercise 3.10 
                 let listVal = exps |> List.map (Exp.valueOf env)
                 ExpVal.List listVal
+            | Exp.Proc (var, body) ->               // pg. 80
+                ExpVal.Proc (Proc.Procedure(var, body, env))
+            | Exp.Call (rator, rand) ->             // pg. 80
+                let proc = Exp.valueOf env rator |> ExpVal.toProc
+                let arg = Exp.valueOf env rand
+                Proc.applyProcedure proc arg
+            | Exp.LetProc (var, procVar, procBody, body) -> // Exercise 3.19
+                let proc = Proc.Procedure(procVar, procBody, env)
+                let env1 = Env.Extend(var, ExpVal.Proc proc, env)
+                Exp.valueOf env1 body
 
 [<RequireQualifiedAccess>]
 type Program =

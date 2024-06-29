@@ -114,6 +114,16 @@ let ``parse list`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.List [ExpVal.Num 1; ExpVal.Num 2; ExpVal.Num 3])
 
+let ``parse procCall`` () =
+    let programText = "(proc (x) x 1)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
+let ``parse letproc`` () =
+    let programText = "letproc f (x) = x in (f 1)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
 let runTests () =
     let tests = 
         [ 
@@ -139,6 +149,8 @@ let runTests () =
             ``parse isNull``
             ``parse emptyList``
             ``parse list``
+            ``parse procCall``
+            ``parse letproc``
         ]
     tests |> List.iter (fun test -> test())
 

@@ -72,13 +72,24 @@ let listOpExp =
         listExp
     ]
 
+let procExp = skipString "proc" >>. ws >>. skipString "(" >>. ws >>. pvar .>> ws .>> skipString ")" .>> ws .>>. pexp |>> Exp.Proc
+let callExp = skipString "(" >>. ws >>. pexp .>> ws .>>. pexp .>> ws .>> skipString ")" |>> Exp.Call
+let letProcExp = skipString "letproc" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. pvar .>> ws .>> skipString ")" .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "in" .>> ws .>>. pexp |>> (fun (((var1, var2), exp1), exp2) -> Exp.LetProc(var1, var2, exp1, exp2))
+let procedureExp =
+    choice [
+        procExp
+        callExp
+        letProcExp
+    ]
+
 let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
         conditionalExp
-        letTypeExp
+        attempt letTypeExp
         mathOpExp
         listOpExp
+        procedureExp
         constExp
         varExp
     ]
