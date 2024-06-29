@@ -11,7 +11,7 @@ let pipe6 p1 p2 p3 p4 p5 p6 f = pipe4 p1 p2 p3 (tuple3 p4 p5 p6) (fun a b c (d, 
 
 let pinteger : Parser<int, unit> = pint32 |>> int
 let constExp : Parser<Exp, unit> = pinteger |>> Exp.Const
-let pvar : Parser<Var, unit> = many1Satisfy isLetter |>> string
+let pvar : Parser<Var, unit> = many1Satisfy2 isLetter (System.Char.IsLetterOrDigit) |>> string
 let varExp : Parser<Exp, unit> = pvar |>> Exp.Var
 
 let pexp, pexpRef = createParserForwardedToRef<Exp, unit>()
