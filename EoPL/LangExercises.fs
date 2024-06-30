@@ -25,9 +25,55 @@ let ``parse Exercise 3.23`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 24)
 
+let ``parse Exercise 3.24 even`` () =
+    let programText = 
+        "
+        let [makeEven = proc (maker)
+                         proc (f)
+                          proc (x)
+                           if zero?(x)
+                           then 1
+                           else (((f f) maker) -(x,1))]
+        in let [makeOdd = proc (maker)
+                           proc (f)
+                            proc (x)
+                             if zero?(x)
+                             then 0
+                             else (((f f) maker) -(x,1))]
+            in let [odd = proc (x) (((makeEven makeEven) makeOdd) x)]
+               in let [even = proc (x) (((makeEven makeEven) makeOdd) x)]
+                  in (even 12)
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
+let ``parse Exercise 3.24 odd`` () =
+    let programText = 
+        "
+        let [makeEven = proc (maker)
+                         proc (f)
+                          proc (x)
+                           if zero?(x)
+                           then 1
+                           else (((f f) maker) -(x,1))]
+        in let [makeOdd = proc (maker)
+                           proc (f)
+                            proc (x)
+                             if zero?(x)
+                             then 0
+                             else (((f f) maker) -(x,1))]
+            in let [odd = proc (x) (((makeEven makeEven) makeOdd) x)]
+               in let [even = proc (x) (((makeEven makeEven) makeOdd) x)]
+                  in (odd 13)
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 0)
+
 let runExercises () =
     let exercises = 
         [ 
-            ``parse Exercise 3.23`` 
+            ``parse Exercise 3.23``
+            ``parse Exercise 3.24 even``
+            ``parse Exercise 3.24 odd``
         ]
     exercises |> List.iter (fun test -> test())
