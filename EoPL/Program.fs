@@ -1,7 +1,9 @@
 ﻿open Parser
 open Tests
+open LangExercises
 
 runTests()
+runExercises()
 
 // get text from console
 // read until ;; is entered
