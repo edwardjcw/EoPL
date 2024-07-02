@@ -7,12 +7,16 @@ type Vars = Var list
 type Env =
     | Empty
     | Extend of var:Var * value:ExpVal * savedEnv:Env
+    | ExtendRec of pName:Var * bVars:Vars * body:Exp * savedEnv:Env  // Exercise 3.31
     with
         static member apply searchVar = function
             | Empty -> failwith $"Variable {searchVar} not found"
 
             | Extend(savedVar, savedValue, _) when savedVar = searchVar -> savedValue
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
+
+            | ExtendRec(pName, bVars, body, _) as env when pName = searchVar -> ExpVal.Proc (Proc.Procedure(bVars, body, env))      // Exercise 3.31
+            | ExtendRec(_, _, _, savedEnv) -> Env.apply searchVar savedEnv
 
 and Proc =
     | Procedure of Vars * Exp * Env                 // Exercise 3.21 modified
@@ -59,6 +63,7 @@ and Exp =
     | Proc of Vars * body:Exp                           // Exercise 3.21 modified
     | Call of rator:Exp * rands:Exp list                // Exercise 3.21 modified
     | LetProc of Var * Vars * Exp * Exp                 // Exercise 3.21 modified
+    | LetRec of Var * Vars * Exp * Exp                  // Exercise 3.31
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -148,6 +153,9 @@ and Exp =
                 let proc = Proc.Procedure(procVars, procBody, env)
                 let env1 = Env.Extend(var, ExpVal.Proc proc, env)
                 Exp.valueOf env1 body
+            | Exp.LetRec (pName, bVars, body, letrecBody) -> // Exercise 3.31
+                let env1 = Env.ExtendRec(pName, bVars, body, env)
+                Exp.valueOf env1 letrecBody
 
 [<RequireQualifiedAccess>]
 type Program =

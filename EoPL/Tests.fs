@@ -124,6 +124,11 @@ let ``parse letproc`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.List [ExpVal.Num 1; ExpVal.Num 2])
 
+let ``parse letrec`` () =
+    let programText = "letrec f (x, y) = if zero?(x) then 0 else -((f -(x,1) y), minus(y)) in (f 3 4)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 12)
+
 let runTests () =
     let tests = 
         [ 
@@ -151,6 +156,7 @@ let runTests () =
             ``parse list``
             ``parse procCall``
             ``parse letproc``
+            ``parse letrec``
         ]
     tests |> List.iter (fun test -> test())
 
