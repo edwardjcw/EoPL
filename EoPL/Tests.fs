@@ -24,6 +24,11 @@ let ``parse isZero`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Bool true)
 
+let ``parse isOne`` () =
+    let programText = "one?(1)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Bool true)
+
 let ``parse if`` () =
     let programText = "if zero?(0) then 1 else 2"
     let program = parseProgram programText
@@ -33,6 +38,11 @@ let ``parse cond`` () =
     let programText = "cond (zero?(0) ==> 1) end"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
+
+let ``parse or`` () =
+    let programText = "or(zero?(5), one?(2), zero?(0))"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Bool true)
 
 let ``parse let`` () =
     let programText = "let [x = 30] in let [x = -(x,1)] [y = -(x,2)] in -(x,y)"
@@ -133,7 +143,7 @@ let ``parse letrec2`` () =
     let programText = 
         "
             letrec [even(x) = if zero?(x) then 1 else (odd -(x,1))]
-                   [odd(x) = if zero?(x) then 0 else (even -(x,1))]
+                   [odd(x) = if or(zero?(x), one?(x)) then 0 else (even -(x,1))]
             in (odd 13)
         "
     let program = parseProgram programText
@@ -146,8 +156,10 @@ let runTests () =
             ``parse var``
             ``parse diff``
             ``parse isZero``
+            ``parse isOne``
             ``parse if``
             ``parse cond``
+            ``parse or``
             ``parse let``
             ``parse let*``
             ``parse unpack``
@@ -167,6 +179,7 @@ let runTests () =
             ``parse procCall``
             ``parse letproc``
             ``parse letrec1``
+            ``parse letrec2``
         ]
     tests |> List.iter (fun test -> test())
 

@@ -28,13 +28,16 @@ let letTypeExp =
 
 let ifExp = skipString "if" >>. ws >>. pexp .>> ws .>> skipString "then" .>> ws .>>. pexp .>> ws .>> skipString "else" .>> ws .>>. pexp |>> (fun ((exp1, exp2), exp3) -> Exp.If(exp1, exp2, exp3))
 let condExp = skipString "cond" >>. ws >>. many1 (skipString "(" >>. ws >>. pexp .>> ws .>> skipString "==>" .>> ws .>>. pexp .>> skipString ")" .>> ws) .>> skipString "end" |>> Exp.Cond
+let orExp = skipString "or(" >>. ws >>. sepBy pexp (skipString "," .>> ws) .>> skipString ")" |>> Exp.Or
 let conditionalExp = 
     choice [
         ifExp
         condExp
+        orExp
     ]
 
 let isZeroExp : Parser<Exp, unit> = skipString "zero?(" >>. ws >>. pexp .>> skipString ")" |>> Exp.IsZero
+let isOneExp : Parser<Exp, unit> = skipString "one?(" >>. ws >>. pexp .>> skipString ")" |>> Exp.IsOne
 let minusExp = between (skipString "minus(" .>> ws) (skipString ")") pexp |>> Exp.Minus
 let addExp = skipString "+(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.Add
 let diffExp = skipString "-(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.Diff
@@ -46,6 +49,7 @@ let isLessExp = skipString "<(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws
 let mathOpExp =
     choice [
         isZeroExp
+        isOneExp
         minusExp
         addExp
         diffExp

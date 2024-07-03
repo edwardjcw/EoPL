@@ -7,7 +7,7 @@ type Vars = Var list
 type Env =
     | Empty
     | Extend of var:Var * value:ExpVal * savedEnv:Env
-    | ExtendRec of pName:Var * bVars:Vars * body:Exp * savedEnv:Env  // Exercise 3.31
+    | ExtendRec of (Var * Vars * Exp) list * savedEnv:Env  // Exercise 3.31
     with
         static member apply searchVar = function
             | Empty -> failwith $"Variable {searchVar} not found"
@@ -15,8 +15,11 @@ type Env =
             | Extend(savedVar, savedValue, _) when savedVar = searchVar -> savedValue
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
 
-            | ExtendRec(pName, bVars, body, _) as env when pName = searchVar -> ExpVal.Proc (Proc.Procedure(bVars, body, env))      // Exercise 3.31
-            | ExtendRec(_, _, _, savedEnv) -> Env.apply searchVar savedEnv
+            | ExtendRec(procs, savedEnv) as env ->
+                procs
+                |> List.tryFind (fun (pName, _, _) -> pName = searchVar)
+                |> Option.map (fun (_, bVars, body) -> ExpVal.Proc (Proc.Procedure(bVars, body, env)))
+                |> function Some(x) -> x | None -> Env.apply searchVar savedEnv
 
 and Proc =
     | Procedure of Vars * Exp * Env                 // Exercise 3.21 modified
@@ -40,8 +43,10 @@ and ExpVal =
 and Exp =
     | Const of num:int
     | IsZero of exp1:Exp
+    | IsOne of exp1:Exp
     | If of exp1:Exp * exp2:Exp * exp3:Exp
     | Cond of (Exp * Exp) list                          // Exercise 3.12
+    | Or of Exp list
     | Diff of exp1:Exp * exp2:Exp
     | Var of var:Var
     | Let of (Var * Exp) list * body:Exp                // Exercise 3.16 modified
@@ -71,6 +76,9 @@ and Exp =
             | Exp.IsZero exp1 ->
                 let num = Exp.valueOf env exp1 |> ExpVal.toNum
                 ExpVal.Bool (num = 0)
+            | Exp.IsOne exp1 ->                          
+                let num = Exp.valueOf env exp1 |> ExpVal.toNum
+                ExpVal.Bool (num = 1)
             | Exp.If(exp1, exp2, exp3) ->
                 let bool = Exp.valueOf env exp1 |> ExpVal.toBool
                 if bool then Exp.valueOf env exp2 else Exp.valueOf env exp3
@@ -80,6 +88,13 @@ and Exp =
                 |> List.tryFind (fun (bool, _) -> bool)
                 |> Option.map (fun (_, exp) -> Exp.valueOf env exp)
                 |> function Some(x) -> x | None -> failwith "No true condition found." 
+            | Exp.Or exps ->
+                let rec orExp = function
+                    | [] -> ExpVal.Bool false
+                    | exp::exps -> 
+                        let bool = Exp.valueOf env exp |> ExpVal.toBool
+                        if bool then ExpVal.Bool true else orExp exps
+                orExp exps
             | Exp.Diff(exp1, exp2) ->
                 let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
                 let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
@@ -154,9 +169,8 @@ and Exp =
                 let env1 = Env.Extend(var, ExpVal.Proc proc, env)
                 Exp.valueOf env1 body
             | Exp.LetRec (procs, letrecBody) -> // Exercise 3.33 modified
-                let env1 = procs |> List.fold (fun newEnv (pName, bVars, body) -> Env.ExtendRec(pName, bVars, body, newEnv)) env
-                let env2 = procs |> List.fold (fun newEnv (pName, bVars, body) -> Env.ExtendRec(pName, bVars, body, newEnv)) env1
-                Exp.valueOf env2 letrecBody
+                let env1 = Env.ExtendRec(procs, env)
+                Exp.valueOf env1 letrecBody
 
 [<RequireQualifiedAccess>]
 type Program =
