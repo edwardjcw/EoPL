@@ -75,7 +75,9 @@ let listOpExp =
 let procExp = skipString "proc" >>. ws >>. (skipString "(" >>. ws >>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws) .>>. pexp |>> Exp.Proc
 let callExp = skipString "(" >>. ws >>. pexp .>> ws .>>. many1 (pexp .>> ws) .>> ws .>> skipString ")" |>> Exp.Call
 let letProcExp = skipString "letproc" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "in" .>> ws .>>. pexp |>> (fun (((var1, vars), exp1), exp2) -> Exp.LetProc(var1, vars, exp1, exp2))
-let letRecExp = skipString "letrec" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "in" .>> ws .>>. pexp |>> (fun (((var1, vars), exp1), exp2) -> Exp.LetRec(var1, vars, exp1, exp2))
+let letRecExp = skipString "letrec" >>. ws >>. many1 (skipString "[" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "]" .>> ws) .>> skipString "in" .>> ws .>>. pexp |>> (fun (procs, exp) -> 
+                    let procs2 = procs |> List.map (fun ((var, vars), exp) -> (var, vars, exp))
+                    Exp.LetRec(procs2, exp))
 let procedureExp =
     choice [
         procExp

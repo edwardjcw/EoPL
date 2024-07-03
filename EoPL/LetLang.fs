@@ -63,7 +63,7 @@ and Exp =
     | Proc of Vars * body:Exp                           // Exercise 3.21 modified
     | Call of rator:Exp * rands:Exp list                // Exercise 3.21 modified
     | LetProc of Var * Vars * Exp * Exp                 // Exercise 3.21 modified
-    | LetRec of Var * Vars * Exp * Exp                  // Exercise 3.31
+    | LetRec of (Var * Vars * Exp) list * Exp           // Exercise 3.33 modified
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -153,9 +153,10 @@ and Exp =
                 let proc = Proc.Procedure(procVars, procBody, env)
                 let env1 = Env.Extend(var, ExpVal.Proc proc, env)
                 Exp.valueOf env1 body
-            | Exp.LetRec (pName, bVars, body, letrecBody) -> // Exercise 3.31
-                let env1 = Env.ExtendRec(pName, bVars, body, env)
-                Exp.valueOf env1 letrecBody
+            | Exp.LetRec (procs, letrecBody) -> // Exercise 3.33 modified
+                let env1 = procs |> List.fold (fun newEnv (pName, bVars, body) -> Env.ExtendRec(pName, bVars, body, newEnv)) env
+                let env2 = procs |> List.fold (fun newEnv (pName, bVars, body) -> Env.ExtendRec(pName, bVars, body, newEnv)) env1
+                Exp.valueOf env2 letrecBody
 
 [<RequireQualifiedAccess>]
 type Program =
