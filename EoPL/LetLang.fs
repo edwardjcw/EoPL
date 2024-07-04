@@ -7,7 +7,7 @@ type Vars = Var list
 type Env =
     | Empty
     | Extend of var:Var * value:ExpVal * savedEnv:Env
-    | ExtendRec of (Var * Vars * Exp) list * savedEnv:Env  // Exercise 3.31
+    | ExtendRec of (Var * Vars * Exp) list * savedEnv:Env  // Exercise 3.33 modified
     with
         static member apply searchVar = function
             | Empty -> failwith $"Variable {searchVar} not found"

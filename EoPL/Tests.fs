@@ -143,11 +143,11 @@ let ``parse letrec2`` () =
     let programText = 
         "
             letrec [even(x) = if zero?(x) then 1 else (odd -(x,1))]
-                   [odd(x) = if or(zero?(x), one?(x)) then 0 else (even -(x,1))]
+                   [odd(x) = if zero?(x) then 0 else (even -(x,1))]
             in (odd 13)
         "
     let program = parseProgram programText
-    program |> should equal (ExpVal.Num 0)
+    program |> should equal (ExpVal.Num 1)
 
 let runTests () =
     let tests = 
