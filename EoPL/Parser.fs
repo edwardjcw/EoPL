@@ -90,11 +90,22 @@ let procedureExp =
         letRecExp
     ]
 
+let newRefExp = skipString "newref(" >>. ws >>. pexp .>> ws .>> skipString ")" |>> Exp.NewRef
+let deRefExp = skipString "deref(" >>. ws >>. pexp .>> skipString ")" |>> Exp.DeRef
+let setRefExp = skipString "setref(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.SetRef
+let refExp =
+    choice [
+        newRefExp
+        deRefExp
+        setRefExp
+    ]
+
 let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
         conditionalExp
         procedureExp
+        refExp
         letTypeExp
         mathOpExp
         listOpExp

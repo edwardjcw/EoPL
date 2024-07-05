@@ -149,6 +149,11 @@ let ``parse letrec2`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
+let ``parse newRef and deRef`` () =
+    let programText = "let [x = newref(1)] in deref(x)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
 let runTests () =
     let tests = 
         [ 
@@ -180,6 +185,7 @@ let runTests () =
             ``parse letproc``
             ``parse letrec1``
             ``parse letrec2``
+            ``parse newRef and deRef``
         ]
     tests |> List.iter (fun test -> test())
 

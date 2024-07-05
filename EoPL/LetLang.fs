@@ -28,17 +28,39 @@ and Proc =
             let env1 = args |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) savedEnv
             Exp.valueOf env1 body
 
-// ExpVal = INT + BOOL + LIST + PROC
+// explicit ref store (Section 4.2)
+and Store() =
+    static let mutable store = Map<int, ExpVal> []
+    static let mutable nextLoc = 0
+    static member newRef value =
+        let loc = nextLoc
+        nextLoc <- nextLoc + 1
+        store <- store.Add(loc, value)
+        ExpVal.Ref (ExpVal.Num loc)
+    static member deRef ref =
+        let key = ExpVal.toNum (ExpVal.toRef ref)
+        store.[key]
+    static member setRef ref value =
+        if not (store.ContainsKey(ExpVal.toNum (ExpVal.toRef ref))) then failwith "setRef: invalid reference"
+        else
+            let key = ExpVal.toNum (ExpVal.toRef ref)
+            store <- store.Add(key, value)
+            ExpVal.Unit
+
+// ExpVal = INT + BOOL + LIST + PROC + REF
 and ExpVal =
     | Num of int
     | Bool of bool
     | List of ExpVal list                            // Exercise 3.9
     | Proc of Proc                                   // pg 79
+    | Ref of ExpVal                                  // Section 4.2
+    | Unit                                           // Section 4.2
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
         static member toBool = function | ExpVal.Bool b -> b | _ -> failwith "Expected ExpVal.Bool. Bad transform."
         static member toList = function | ExpVal.List l -> l | _ -> failwith "Expected ExpVal.List. Bad transform."     // Exercise 3.9
         static member toProc = function | ExpVal.Proc p -> p | _ -> failwith "Expected ExpVal.Proc. Bad transform."    // pg. 79
+        static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Section 4.2
 
 and Exp =
     | Const of num:int
@@ -69,6 +91,9 @@ and Exp =
     | Call of rator:Exp * rands:Exp list                // Exercise 3.21 modified
     | LetProc of Var * Vars * Exp * Exp                 // Exercise 3.21 modified
     | LetRec of (Var * Vars * Exp) list * Exp           // Exercise 3.33 modified
+    | NewRef of exp:Exp                                 // Section 4.2
+    | DeRef of exp:Exp                                  // Section 4.2
+    | SetRef of exp1:Exp * exp2:Exp                     // Section 4.2
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -171,6 +196,16 @@ and Exp =
             | Exp.LetRec (procs, letrecBody) -> // Exercise 3.33 modified
                 let env1 = Env.ExtendRec(procs, env)
                 Exp.valueOf env1 letrecBody
+            | Exp.NewRef exp ->                    // Section 4.2
+                let value = Exp.valueOf env exp
+                Store.newRef value
+            | Exp.DeRef exp ->                     // Section 4.2
+                let ref = Exp.valueOf env exp
+                Store.deRef ref
+            | Exp.SetRef (exp1, exp2) ->           // Section 4.2 
+                let ref = Exp.valueOf env exp1
+                let value = Exp.valueOf env exp2
+                Store.setRef ref value
 
 [<RequireQualifiedAccess>]
 type Program =
