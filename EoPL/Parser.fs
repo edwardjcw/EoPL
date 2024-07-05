@@ -100,6 +100,8 @@ let refExp =
         setRefExp
     ]
 
+let beginExp = skipString "begin" >>. ws >>. sepBy1 pexp (skipString ";" .>> ws) .>> ws .>> skipString "end" |>> Exp.Begin
+
 let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
@@ -109,6 +111,7 @@ do pexpRef.Value <-
         letTypeExp
         mathOpExp
         listOpExp
+        beginExp
         constExp
         varExp
     ]

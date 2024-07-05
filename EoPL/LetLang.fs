@@ -94,6 +94,7 @@ and Exp =
     | NewRef of exp:Exp                                 // Section 4.2
     | DeRef of exp:Exp                                  // Section 4.2
     | SetRef of exp1:Exp * exp2:Exp                     // Section 4.2
+    | Begin of Exp list                                 // Exercise 4.10
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -206,6 +207,8 @@ and Exp =
                 let ref = Exp.valueOf env exp1
                 let value = Exp.valueOf env exp2
                 Store.setRef ref value
+            | Exp.Begin exps ->                    // Exercise 4.10
+                exps |> List.map (Exp.valueOf env) |> List.last
 
 [<RequireQualifiedAccess>]
 type Program =
