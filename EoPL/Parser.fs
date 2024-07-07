@@ -90,14 +90,16 @@ let procedureExp =
         letRecExp
     ]
 
-let newRefExp = skipString "newref(" >>. ws >>. pexp .>> ws .>> skipString ")" |>> Exp.NewRef
-let deRefExp = skipString "deref(" >>. ws >>. pexp .>> skipString ")" |>> Exp.DeRef
-let setRefExp = skipString "setref(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.SetRef
+//let newRefExp = skipString "newref(" >>. ws >>. pexp .>> ws .>> skipString ")" |>> Exp.NewRef
+//let deRefExp = skipString "deref(" >>. ws >>. pexp .>> skipString ")" |>> Exp.DeRef
+//let setRefExp = skipString "setref(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.SetRef
+let setExp = skipString "set" >>. ws >>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp |>> Exp.Assign
 let refExp =
     choice [
-        newRefExp
-        deRefExp
-        setRefExp
+        //newRefExp
+        //deRefExp
+        //setRefExp
+        setExp
     ]
 
 let beginExp = skipString "begin" >>. ws >>. sepBy1 pexp (skipString ";" .>> ws) .>> ws .>> skipString "end" |>> Exp.Begin

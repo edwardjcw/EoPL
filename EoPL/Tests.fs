@@ -149,18 +149,23 @@ let ``parse letrec2`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
-let ``parse newRef and deRef`` () =
-    let programText = "let [x = newref(1)] in deref(x)"
-    let program = parseProgram programText
-    program |> should equal (ExpVal.Num 1)
+//let ``parse newRef and deRef`` () =
+//    let programText = "let [x = newref(1)] in deref(x)"
+//    let program = parseProgram programText
+//    program |> should equal (ExpVal.Num 1)
 
 let ``parse begin`` () =
     let programText = "begin 1; 2; 3 end"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 3)
 
-let ``parse setRef`` () =
-    let programText = "let [x = newref(1)] in begin setref(x, 2); deref(x) end"
+//let ``parse setRef`` () =
+//    let programText = "let [x = newref(1)] in begin setref(x, 2); deref(x) end"
+//    let program = parseProgram programText
+//    program |> should equal (ExpVal.Num 2)
+
+let ``parse set`` () =
+    let programText = "let [x = 1] in begin set x = 2; x end"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 2)
 
@@ -195,8 +200,9 @@ let runTests () =
             ``parse letproc``
             ``parse letrec1``
             ``parse letrec2``
-            ``parse newRef and deRef``
+            //``parse newRef and deRef``
             ``parse begin``
+            ``parse set``
         ]
     tests |> List.iter (fun test -> test())
 

@@ -6,7 +6,7 @@ type Vars = Var list
 [<RequireQualifiedAccess>]
 type Env =
     | Empty
-    | Extend of var:Var * value:ExpVal * savedEnv:Env
+    | Extend of var:Var * value:Val * savedEnv:Env
     | ExtendRec of (Var * Vars * Exp) list * savedEnv:Env  // Exercise 3.33 modified
     with
         static member apply searchVar = function
@@ -18,14 +18,14 @@ type Env =
             | ExtendRec(procs, savedEnv) as env ->
                 procs
                 |> List.tryFind (fun (pName, _, _) -> pName = searchVar)
-                |> Option.map (fun (_, bVars, body) -> ExpVal.Proc (Proc.Procedure(bVars, body, env)))
+                |> Option.map (fun (_, bVars, body) -> Store.newRef (ExpVal.Proc (Proc.Procedure(bVars, body, env))))
                 |> function Some(x) -> x | None -> Env.apply searchVar savedEnv
 
 and Proc =
     | Procedure of Vars * Exp * Env                 // Exercise 3.21 modified
     with 
-        static member applyProcedure (Proc.Procedure(vars, body, savedEnv)) args =
-            let env1 = args |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) savedEnv
+        static member applyProcedure (Proc.Procedure(vars, body, savedEnv)) (args : ExpVal list) =
+            let env1 = args |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, Store.newRef value, acc)) savedEnv
             Exp.valueOf env1 body
 
 // explicit ref store (Section 4.2)
@@ -36,31 +36,44 @@ and Store() =
         let loc = nextLoc
         nextLoc <- nextLoc + 1
         store <- store.Add(loc, value)
-        ExpVal.Ref (ExpVal.Num loc)
+        Val.Den (DenVal.Ref (ExpVal.Num loc))
     static member deRef ref =
-        let key = ExpVal.toNum (ExpVal.toRef ref)
+        let key = ExpVal.toNum (DenVal.toRef (Val.toDenVal (ref)))
         store.[key]
     static member setRef ref value =
-        if not (store.ContainsKey(ExpVal.toNum (ExpVal.toRef ref))) then failwith "setRef: invalid reference"
+        let key = ExpVal.toNum (DenVal.toRef (Val.toDenVal ref))
+        if not (store.ContainsKey(key)) then failwith "setRef: invalid reference"
         else
-            let key = ExpVal.toNum (ExpVal.toRef ref)
             store <- store.Add(key, value)
             ExpVal.Unit
 
-// ExpVal = INT + BOOL + LIST + PROC + REF
+// ExpVal = INT + BOOL + LIST + PROC //+ REF
 and ExpVal =
     | Num of int
     | Bool of bool
     | List of ExpVal list                            // Exercise 3.9
     | Proc of Proc                                   // pg 79
-    | Ref of ExpVal                                  // Section 4.2
+    //| Ref of ExpVal                                  // Section 4.2
     | Unit                                           // Section 4.2
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
         static member toBool = function | ExpVal.Bool b -> b | _ -> failwith "Expected ExpVal.Bool. Bad transform."
         static member toList = function | ExpVal.List l -> l | _ -> failwith "Expected ExpVal.List. Bad transform."     // Exercise 3.9
         static member toProc = function | ExpVal.Proc p -> p | _ -> failwith "Expected ExpVal.Proc. Bad transform."    // pg. 79
-        static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Section 4.2
+        //static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Section 4.2
+
+// DenVal = Ref(ExpVal)
+and DenVal =
+    | Ref of ExpVal
+    with
+        static member toRef = function | DenVal.Ref r -> r | _ -> failwith "Expected DenVal.Ref. Bad transform."
+
+and Val =
+    | Exp of ExpVal
+    | Den of DenVal
+    with
+        static member toExpVal = function | Val.Exp e -> e | _ -> failwith "Expected Val.Exp. Bad transform."
+        static member toDenVal = function | Val.Den d -> d | _ -> failwith "Expected Val.Den. Bad transform."
 
 and Exp =
     | Const of num:int
@@ -91,9 +104,10 @@ and Exp =
     | Call of rator:Exp * rands:Exp list                // Exercise 3.21 modified
     | LetProc of Var * Vars * Exp * Exp                 // Exercise 3.21 modified
     | LetRec of (Var * Vars * Exp) list * Exp           // Exercise 3.33 modified
-    | NewRef of exp:Exp                                 // Section 4.2
-    | DeRef of exp:Exp                                  // Section 4.2
-    | SetRef of exp1:Exp * exp2:Exp                     // Section 4.2
+    //| NewRef of exp:Exp                                 // Section 4.2
+    //| DeRef of exp:Exp                                  // Section 4.2
+    //| SetRef of exp1:Exp * exp2:Exp                     // Section 4.2
+    | Assign of var:Var * exp:Exp                       // Section 4.3
     | Begin of Exp list                                 // Exercise 4.10
     with
         static member valueOf env = function
@@ -125,19 +139,20 @@ and Exp =
                 let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
                 let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
                 ExpVal.Num (num1 - num2)
-            | Exp.Var var ->
-                Env.apply var env
+            | Exp.Var var ->                        // Section 4.3 modified
+                let loc = Env.apply var env
+                Store.deRef loc
             | Exp.Let(exps, body) ->                // Exercise 3.16 modified
                 let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
-                let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) env
+                let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, Store.newRef value, acc)) env
                 Exp.valueOf env1 body
             | Exp.LetStar(exps, body) ->            // Exercise 3.17 
-                let env1 = exps |> List.fold (fun acc (var, exp) -> Env.Extend(var, Exp.valueOf acc exp, acc)) env
+                let env1 = exps |> List.fold (fun acc (var, exp) -> Env.Extend(var, Exp.valueOf acc exp |> Store.newRef, acc)) env
                 Exp.valueOf env1 body
             | Exp.Unpack(vars, exp, body) ->        // Exercise 3.18 
                 let listVal = Exp.valueOf env exp |> ExpVal.toList
                 if List.length vars <> List.length listVal then failwith "Unpack: vars and listVal have different lengths."
-                let env1 = listVal |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, value, acc)) env
+                let env1 = listVal |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, Store.newRef value, acc)) env
                 Exp.valueOf env1 body
             | Exp.Minus exp ->                      // Exercise 3.6
                 let num = Exp.valueOf env exp |> ExpVal.toNum
@@ -192,21 +207,25 @@ and Exp =
                 Proc.applyProcedure proc args
             | Exp.LetProc (var, procVars, procBody, body) -> // Exercise 3.21 modified
                 let proc = Proc.Procedure(procVars, procBody, env)
-                let env1 = Env.Extend(var, ExpVal.Proc proc, env)
+                let env1 = Env.Extend(var, Store.newRef (ExpVal.Proc proc), env)
                 Exp.valueOf env1 body
             | Exp.LetRec (procs, letrecBody) -> // Exercise 3.33 modified
                 let env1 = Env.ExtendRec(procs, env)
                 Exp.valueOf env1 letrecBody
-            | Exp.NewRef exp ->                    // Section 4.2
+            //| Exp.NewRef exp ->                    // Section 4.2
+            //    let value = Exp.valueOf env exp
+            //    Store.newRef value
+            //| Exp.DeRef exp ->                     // Section 4.2
+            //    let ref = Exp.valueOf env exp
+            //    Store.deRef ref
+            //| Exp.SetRef (exp1, exp2) ->           // Section 4.2 
+            //    let ref = Exp.valueOf env exp1
+            //    let value = Exp.valueOf env exp2
+            //    Store.setRef ref value
+            | Exp.Assign (var, exp) ->               // Section 4.3
+                let loc = Env.apply var env
                 let value = Exp.valueOf env exp
-                Store.newRef value
-            | Exp.DeRef exp ->                     // Section 4.2
-                let ref = Exp.valueOf env exp
-                Store.deRef ref
-            | Exp.SetRef (exp1, exp2) ->           // Section 4.2 
-                let ref = Exp.valueOf env exp1
-                let value = Exp.valueOf env exp2
-                Store.setRef ref value
+                Store.setRef loc value
             | Exp.Begin exps ->                    // Exercise 4.10
                 exps |> List.map (Exp.valueOf env) |> List.last
 
