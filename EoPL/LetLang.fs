@@ -7,7 +7,7 @@ type Vars = Var list
 type Env =
     | Empty
     | Extend of var:Var * value:Val * savedEnv:Env
-    | ExtendRec of (Var * Vars * Exp) list * savedEnv:Env  // Exercise 3.33 modified
+    | ExtendRec of (Var * Val) list * savedEnv:Env  // Exercise 3.33 modified
     with
         static member apply searchVar = function
             | Empty -> failwith $"Variable {searchVar} not found"
@@ -15,10 +15,10 @@ type Env =
             | Extend(savedVar, savedValue, _) when savedVar = searchVar -> savedValue
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
 
-            | ExtendRec(procs, savedEnv) as env ->
+            | ExtendRec(procs, savedEnv) ->     // Exercise 4.19 modified
                 procs
-                |> List.tryFind (fun (pName, _, _) -> pName = searchVar)
-                |> Option.map (fun (_, bVars, body) -> Store.newRef (ExpVal.Proc (Proc.Procedure(bVars, body, env))))
+                |> List.tryFind (fun (pName, _) -> pName = searchVar)
+                |> Option.map snd
                 |> function Some(x) -> x | None -> Env.apply searchVar savedEnv
 
 and Proc =
@@ -209,8 +209,11 @@ and Exp =
                 let proc = Proc.Procedure(procVars, procBody, env)
                 let env1 = Env.Extend(var, Store.newRef (ExpVal.Proc proc), env)
                 Exp.valueOf env1 body
-            | Exp.LetRec (procs, letrecBody) -> // Exercise 3.33 modified
-                let env1 = Env.ExtendRec(procs, env)
+            | Exp.LetRec (procs, letrecBody) -> // Exercise 4.19 modified
+                let (env1, placeholderRefs) = 
+                    let placeholders = procs |> List.map (fun (pName, _, _) -> (pName, Store.newRef ExpVal.Unit))
+                    (Env.ExtendRec(placeholders, env), placeholders)
+                procs |> List.iter2 (fun (_, ref) (_, bVars, body) -> Store.setRef ref (ExpVal.Proc (Proc.Procedure(bVars, body, env1))) |> ignore) placeholderRefs
                 Exp.valueOf env1 letrecBody
             //| Exp.NewRef exp ->                    // Section 4.2
             //    let value = Exp.valueOf env exp
