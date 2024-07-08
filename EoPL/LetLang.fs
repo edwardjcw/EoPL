@@ -82,6 +82,8 @@ and Exp =
     | Let of (Var * Exp) list * body:Exp                // Exercise 3.16 modified
     | LetStar of (Var * Exp) list * body:Exp            // Exercise 3.17
     | Unpack of Vars * Exp * body:Exp                   // Exercise 3.18
+    | LetMutable of (Var * Exp) list * body:Exp         // Exercise 4.20
+    | SetDynamic of Var * Exp * body:Exp                // Exercise 4.21
     | Minus of exp:Exp                                  // Exercise 3.6
     | Add of exp1:Exp * exp2:Exp                        // Exercise 3.7
     | Mult of exp1:Exp * exp2:Exp                       // Exercise 3.7
@@ -136,19 +138,33 @@ and Exp =
                 ExpVal.Num (num1 - num2)
             | Exp.Var var ->                        // Section 4.3 modified
                 let value = Env.apply var env
-                Store.deRef value
+                match value with
+                | DenVal.Ref _ -> Store.deRef value
+                | DenVal.ExpVal value -> value
             | Exp.Let(exps, body) ->                // Exercise 3.16 modified
                 let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
-                let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, Store.newRef value, acc)) env
+                let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, DenVal.ExpVal value, acc)) env
                 Exp.valueOf env1 body
             | Exp.LetStar(exps, body) ->            // Exercise 3.17 
-                let env1 = exps |> List.fold (fun acc (var, exp) -> Env.Extend(var, Exp.valueOf acc exp |> Store.newRef, acc)) env
+                let env1 = exps |> List.fold (fun acc (var, exp) -> Env.Extend(var, Exp.valueOf acc exp |> DenVal.ExpVal, acc)) env
                 Exp.valueOf env1 body
             | Exp.Unpack(vars, exp, body) ->        // Exercise 3.18 
                 let listVal = Exp.valueOf env exp |> ExpVal.toList
                 if List.length vars <> List.length listVal then failwith "Unpack: vars and listVal have different lengths."
-                let env1 = listVal |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, Store.newRef value, acc)) env
+                let env1 = listVal |> List.zip vars |> List.fold (fun acc (var, value) -> Env.Extend(var, DenVal.ExpVal value, acc)) env
                 Exp.valueOf env1 body
+            | Exp.LetMutable(exps, body) ->         // Exercise 4.20
+                let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
+                let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, Store.newRef value, acc)) env
+                Exp.valueOf env1 body
+            | Exp.SetDynamic(var, exp, body) ->     // Exercise 4.21
+                let loc = Env.apply var env
+                let retainOriginal = Store.deRef loc
+                let value = Exp.valueOf env exp
+                Store.setRef loc value |> ignore
+                let result = Exp.valueOf env body
+                Store.setRef loc retainOriginal |> ignore
+                result
             | Exp.Minus exp ->                      // Exercise 3.6
                 let num = Exp.valueOf env exp |> ExpVal.toNum
                 ExpVal.Num (-num)

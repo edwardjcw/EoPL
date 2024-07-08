@@ -165,9 +165,19 @@ let ``parse begin`` () =
 //    program |> should equal (ExpVal.Num 2)
 
 let ``parse set`` () =
-    let programText = "let [x = 1] in begin set x = 2; x end"
+    let programText = "letmutable [x = 1] in begin set x = 2; x end"
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 2)
+
+let ``parse setdynamic`` () =
+    let programText = 
+        "
+            letmutable [x = 11]
+            in let [p = proc (y) -(y, x)]
+               in -(setdynamic x = 17 during (p 22), (p 13))
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 3)
 
 let runTests () =
     let tests = 
@@ -203,6 +213,7 @@ let runTests () =
             //``parse newRef and deRef``
             ``parse begin``
             ``parse set``
+            ``parse setdynamic``
         ]
     tests |> List.iter (fun test -> test())
 

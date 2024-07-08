@@ -19,11 +19,15 @@ let pexp, pexpRef = createParserForwardedToRef<Exp, unit>()
 let letExp = skipString "let" >>. ws >>. many1 (skipString "[" >>. ws >>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "]" .>> ws) .>> skipString "in" .>> ws .>>. pexp |>> Exp.Let
 let letStarExp = skipString "let*" >>. ws >>. many1 (skipString "[" >>. ws >>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "]" .>> ws) .>> skipString "in" .>> ws .>>. pexp |>> Exp.LetStar
 let unpackExp = skipString "unpack" >>. ws >>. skipString "[" >>. ws >>. many1 (pvar .>> ws) .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "]" .>> ws .>> skipString "in" .>> ws .>>. pexp |>> (fun ((vars, exp1), exp2) -> Exp.Unpack(vars, exp1, exp2))
+let letMutableExp = skipString "letmutable" >>. ws >>. many1 (skipString "[" >>. ws >>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "]" .>> ws) .>> skipString "in" .>> ws .>>. pexp |>> Exp.LetMutable
+let setDynamicExp = skipString "setdynamic" >>. ws >>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws .>> skipString "during" .>> ws .>>. pexp |>> (fun ((var, exp1), exp2) -> Exp.SetDynamic(var, exp1, exp2))
 let letTypeExp =
     choice [
+        letMutableExp
         letStarExp
         letExp
         unpackExp
+        setDynamicExp
     ]
 
 let ifExp = skipString "if" >>. ws >>. pexp .>> ws .>> skipString "then" .>> ws .>>. pexp .>> ws .>> skipString "else" .>> ws .>>. pexp |>> (fun ((exp1, exp2), exp3) -> Exp.If(exp1, exp2, exp3))
@@ -109,8 +113,8 @@ do pexpRef.Value <-
     choice [
         conditionalExp
         procedureExp
-        refExp
         letTypeExp
+        refExp
         mathOpExp
         listOpExp
         beginExp
