@@ -6,8 +6,8 @@ type Vars = Var list
 [<RequireQualifiedAccess>]
 type Env =
     | Empty
-    | Extend of var:Var * value:Val * savedEnv:Env
-    | ExtendRec of (Var * Val) list * savedEnv:Env  // Exercise 3.33 modified
+    | Extend of var:Var * value:DenVal * savedEnv:Env
+    | ExtendRec of (Var * DenVal) list * savedEnv:Env  // Exercise 3.33 modified
     with
         static member apply searchVar = function
             | Empty -> failwith $"Variable {searchVar} not found"
@@ -36,12 +36,12 @@ and Store() =
         let loc = nextLoc
         nextLoc <- nextLoc + 1
         store <- store.Add(loc, value)
-        Val.Den (DenVal.Ref (ExpVal.Num loc))
+        DenVal.Ref (ExpVal.Num loc)
     static member deRef ref =
-        let key = ExpVal.toNum (DenVal.toRef (Val.toDenVal (ref)))
+        let key = ExpVal.toNum (DenVal.toRef ref)
         store.[key]
     static member setRef ref value =
-        let key = ExpVal.toNum (DenVal.toRef (Val.toDenVal ref))
+        let key = ExpVal.toNum (DenVal.toRef ref)
         if not (store.ContainsKey(key)) then failwith "setRef: invalid reference"
         else
             store <- store.Add(key, value)
@@ -62,18 +62,13 @@ and ExpVal =
         static member toProc = function | ExpVal.Proc p -> p | _ -> failwith "Expected ExpVal.Proc. Bad transform."    // pg. 79
         //static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Section 4.2
 
-// DenVal = Ref(ExpVal)
+// DenVal = Ref(ExpVal) + ExpVal            // Exercise 4.20 modified
 and DenVal =
     | Ref of ExpVal
+    | ExpVal of ExpVal
     with
         static member toRef = function | DenVal.Ref r -> r | _ -> failwith "Expected DenVal.Ref. Bad transform."
-
-and Val =
-    | Exp of ExpVal
-    | Den of DenVal
-    with
-        static member toExpVal = function | Val.Exp e -> e | _ -> failwith "Expected Val.Exp. Bad transform."
-        static member toDenVal = function | Val.Den d -> d | _ -> failwith "Expected Val.Den. Bad transform."
+        static member toExpVal = function | DenVal.ExpVal e -> e | _ -> failwith "Expected DenVal.ExpVal. Bad transform."
 
 and Exp =
     | Const of num:int
@@ -140,8 +135,8 @@ and Exp =
                 let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
                 ExpVal.Num (num1 - num2)
             | Exp.Var var ->                        // Section 4.3 modified
-                let loc = Env.apply var env
-                Store.deRef loc
+                let value = Env.apply var env
+                Store.deRef value
             | Exp.Let(exps, body) ->                // Exercise 3.16 modified
                 let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
                 let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, Store.newRef value, acc)) env
