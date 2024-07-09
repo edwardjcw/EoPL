@@ -72,17 +72,22 @@ and DenVal =
         static member toRef = function | DenVal.Ref r -> r | _ -> failwith "Expected DenVal.Ref. Bad transform."
         static member toExpVal = function | DenVal.ExpVal e -> e | _ -> failwith "Expected DenVal.ExpVal. Bad transform."
 
-// MutPair = Ref(ExpVal) * Ref(ExpVal)       // Section 4.4
+// MutPair = Ref(ExpVal)       // Section 4.4.2
 and MutPair =
-    | Refs of DenVal * DenVal
+    | Ref of DenVal
     with
-        static member toRefs = function | MutPair.Refs (l,r) -> (l,r) | _ -> failwith "Expected MutPair.Refs. Bad transform."
+        static member toRef = function | MutPair.Ref l -> l | _ -> failwith "Expected MutPair.Refs. Bad transform."
 
-        static member makePair expVal1 expVal2 = MutPair.Refs(Store.newRef expVal1, Store.newRef expVal2)
-        static member left pair = Store.deRef (pair |> MutPair.toRefs |> fst)
-        static member right pair = Store.deRef (pair |> MutPair.toRefs |> snd)
-        static member setLeft pair expVal = Store.setRef (pair |> MutPair.toRefs |> fst) expVal
-        static member setRight pair expVal = Store.setRef (pair |> MutPair.toRefs |> snd) expVal
+        static let rightRef pair = (pair |> MutPair.toRef |> DenVal.toRef |> ExpVal.toNum) + 1 |> ExpVal.Num |> DenVal.Ref
+        static member makePair expVal1 expVal2 = 
+            let ref1 = Store.newRef expVal1
+            Store.newRef expVal2 |> ignore
+            MutPair.Ref ref1    // the second reference will be based on ref1
+        static member left pair = Store.deRef (pair |> MutPair.toRef)
+        static member right pair = 
+            Store.deRef (rightRef pair)
+        static member setLeft pair expVal = Store.setRef (pair |> MutPair.toRef) expVal
+        static member setRight pair expVal = Store.setRef (rightRef pair) expVal
 
 and Exp =
     | Const of num:int
