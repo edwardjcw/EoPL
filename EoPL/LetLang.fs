@@ -47,13 +47,14 @@ and Store() =
             store <- store.Add(key, value)
             ExpVal.Unit
 
-// ExpVal = INT + BOOL + LIST + PROC //+ REF
+// ExpVal = INT + BOOL + LIST + PROC + MutPair //+ REF
 and ExpVal =
     | Num of int
     | Bool of bool
     | List of ExpVal list                            // Exercise 3.9
     | Proc of Proc                                   // pg 79
     //| Ref of ExpVal                                  // Section 4.2
+    | MutPair of MutPair                             // Section 4.4
     | Unit                                           // Section 4.2
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
@@ -61,6 +62,7 @@ and ExpVal =
         static member toList = function | ExpVal.List l -> l | _ -> failwith "Expected ExpVal.List. Bad transform."     // Exercise 3.9
         static member toProc = function | ExpVal.Proc p -> p | _ -> failwith "Expected ExpVal.Proc. Bad transform."    // pg. 79
         //static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Section 4.2
+        static member toMutPair = function | ExpVal.MutPair p -> p | _ -> failwith "Expected ExpVal.MutPair. Bad transform." // Section 4.4
 
 // DenVal = Ref(ExpVal) + ExpVal            // Exercise 4.20 modified
 and DenVal =
@@ -69,6 +71,18 @@ and DenVal =
     with
         static member toRef = function | DenVal.Ref r -> r | _ -> failwith "Expected DenVal.Ref. Bad transform."
         static member toExpVal = function | DenVal.ExpVal e -> e | _ -> failwith "Expected DenVal.ExpVal. Bad transform."
+
+// MutPair = Ref(ExpVal) * Ref(ExpVal)       // Section 4.4
+and MutPair =
+    | Refs of DenVal * DenVal
+    with
+        static member toRefs = function | MutPair.Refs (l,r) -> (l,r) | _ -> failwith "Expected MutPair.Refs. Bad transform."
+
+        static member makePair expVal1 expVal2 = MutPair.Refs(Store.newRef expVal1, Store.newRef expVal2)
+        static member left pair = Store.deRef (pair |> MutPair.toRefs |> fst)
+        static member right pair = Store.deRef (pair |> MutPair.toRefs |> snd)
+        static member setLeft pair expVal = Store.setRef (pair |> MutPair.toRefs |> fst) expVal
+        static member setRight pair expVal = Store.setRef (pair |> MutPair.toRefs |> snd) expVal
 
 and Exp =
     | Const of num:int
@@ -106,6 +120,11 @@ and Exp =
     //| SetRef of exp1:Exp * exp2:Exp                     // Section 4.2
     | Assign of var:Var * exp:Exp                       // Section 4.3
     | Begin of Exp list                                 // Exercise 4.10
+    | NewPair of exp1:Exp * exp2:Exp                    // Section 4.4
+    | Left of exp:Exp                                   // Section 4.4
+    | Right of exp:Exp                                  // Section 4.4
+    | SetLeft of exp1:Exp * exp2:Exp                    // Section 4.4
+    | SetRight of exp1:Exp * exp2:Exp                   // Section 4.4
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -242,6 +261,24 @@ and Exp =
                 Store.setRef loc value
             | Exp.Begin exps ->                    // Exercise 4.10
                 exps |> List.map (Exp.valueOf env) |> List.last
+            | Exp.NewPair (exp1, exp2) ->          // Section 4.4
+                let left = Exp.valueOf env exp1
+                let right = Exp.valueOf env exp2
+                ExpVal.MutPair (MutPair.makePair left right)
+            | Exp.Left exp ->                       // Section 4.4
+                let pair = Exp.valueOf env exp |> ExpVal.toMutPair
+                MutPair.left pair
+            | Exp.Right exp ->                      // Section 4.4
+                let pair = Exp.valueOf env exp |> ExpVal.toMutPair
+                MutPair.right pair
+            | Exp.SetLeft (exp1, exp2) ->           // Section 4.4
+                let pair = Exp.valueOf env exp1 |> ExpVal.toMutPair
+                let value = Exp.valueOf env exp2
+                MutPair.setLeft pair value
+            | Exp.SetRight (exp1, exp2) ->          // Section 4.4
+                let pair = Exp.valueOf env exp1 |> ExpVal.toMutPair
+                let value = Exp.valueOf env exp2
+                MutPair.setRight pair value
 
 [<RequireQualifiedAccess>]
 type Program =

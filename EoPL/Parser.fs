@@ -108,12 +108,27 @@ let refExp =
 
 let beginExp = skipString "begin" >>. ws >>. sepBy1 pexp (skipString ";" .>> ws) .>> ws .>> skipString "end" |>> Exp.Begin
 
+let pairExp = skipString "pair(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString ")" |>> Exp.NewPair
+let leftExp = skipString "left(" >>. ws >>. pexp .>> skipString ")" |>> Exp.Left
+let rightExp = skipString "right(" >>. ws >>. pexp .>> skipString ")" |>> Exp.Right
+let setLeftExp = skipString "setleft(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.SetLeft
+let setRightExp = skipString "setright(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.SetRight
+let mutablePairExp =
+    choice [
+        pairExp
+        leftExp
+        rightExp
+        setLeftExp
+        setRightExp
+    ]
+
 let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
         conditionalExp
         procedureExp
         letTypeExp
+        mutablePairExp
         refExp
         mathOpExp
         listOpExp

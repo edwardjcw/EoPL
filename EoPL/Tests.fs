@@ -179,6 +179,16 @@ let ``parse setdynamic`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 3)
 
+let ``parse setleft and left`` () =
+    let programText = "let [x = pair(1, 2)] in begin setleft(x, 3); left(x) end"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 3)
+
+let ``parse setright and right`` () =
+    let programText = "let [x = pair(1, 2)] in begin setright(x, 3); right(x) end"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 3)
+
 let runTests () =
     let tests = 
         [ 
@@ -214,6 +224,8 @@ let runTests () =
             ``parse begin``
             ``parse set``
             ``parse setdynamic``
+            ``parse setleft and left``
+            ``parse setright and right``
         ]
     tests |> List.iter (fun test -> test())
 
