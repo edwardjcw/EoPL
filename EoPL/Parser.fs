@@ -122,6 +122,16 @@ let mutablePairExp =
         setRightExp
     ]
 
+let newArrayExp = skipString "newarray(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString ")" |>> Exp.NewArray
+let arrayRefExp = skipString "arrayref(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString ")" |>> Exp.ArrayRef
+let arraySetExp = skipString "arrayset(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString ")" |>> (fun ((exp1, exp2), exp3) -> Exp.ArraySet(exp1, exp2, exp3))
+let arrayExp =
+    choice [
+        newArrayExp
+        arrayRefExp
+        arraySetExp
+    ]
+
 let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
@@ -133,6 +143,7 @@ do pexpRef.Value <-
         mathOpExp
         listOpExp
         beginExp
+        arrayExp
         constExp
         varExp
     ]

@@ -47,7 +47,7 @@ and Store() =
             store <- store.Add(key, value)
             ExpVal.Unit
 
-// ExpVal = INT + BOOL + LIST + PROC + MutPair //+ REF
+// ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal //+ REF
 and ExpVal =
     | Num of int
     | Bool of bool
@@ -55,6 +55,7 @@ and ExpVal =
     | Proc of Proc                                   // pg 79
     //| Ref of ExpVal                                  // Section 4.2
     | MutPair of MutPair                             // Section 4.4
+    | ArrVal of ArrVal                               // Exercise 4.29
     | Unit                                           // Section 4.2
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
@@ -63,6 +64,7 @@ and ExpVal =
         static member toProc = function | ExpVal.Proc p -> p | _ -> failwith "Expected ExpVal.Proc. Bad transform."    // pg. 79
         //static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Section 4.2
         static member toMutPair = function | ExpVal.MutPair p -> p | _ -> failwith "Expected ExpVal.MutPair. Bad transform." // Section 4.4
+        static member toArrVal = function | ExpVal.ArrVal a -> a | _ -> failwith "Expected ExpVal.ArrVal. Bad transform." // Exercise 4.29
 
 // DenVal = Ref(ExpVal) + ExpVal            // Exercise 4.20 modified
 and DenVal =
@@ -74,20 +76,38 @@ and DenVal =
 
 // MutPair = Ref(ExpVal)       // Section 4.4.2
 and MutPair =
-    | Ref of DenVal
+    | Ref of ExpVal
     with
-        static member toRef = function | MutPair.Ref l -> l | _ -> failwith "Expected MutPair.Refs. Bad transform."
+        static member toRef = function | MutPair.Ref l -> l | _ -> failwith "Expected MutPair.Ref. Bad transform."
 
-        static let rightRef pair = (pair |> MutPair.toRef |> DenVal.toRef |> ExpVal.toNum) + 1 |> ExpVal.Num |> DenVal.Ref
+        static let rightRef pair = (pair |> MutPair.toRef |> ExpVal.toNum) + 1 |> ExpVal.Num |> DenVal.Ref
         static member makePair expVal1 expVal2 = 
             let ref1 = Store.newRef expVal1
             Store.newRef expVal2 |> ignore
-            MutPair.Ref ref1    // the second reference will be based on ref1
-        static member left pair = Store.deRef (pair |> MutPair.toRef)
+            MutPair.Ref (ref1 |> DenVal.toRef)    // the second reference will be based on ref1
+        static member left pair = Store.deRef (pair |> MutPair.toRef |> DenVal.Ref)
         static member right pair = 
             Store.deRef (rightRef pair)
-        static member setLeft pair expVal = Store.setRef (pair |> MutPair.toRef) expVal
+        static member setLeft pair expVal = Store.setRef (pair |> MutPair.toRef |> DenVal.Ref) expVal
         static member setRight pair expVal = Store.setRef (rightRef pair) expVal
+
+// ArrVal = (Ref(ExpVal)) array       // Exercise 4.29
+and ArrVal =
+    | Ref of ExpVal     // keep only the ref from the first element
+    with
+        static member toRef = function | ArrVal.Ref r -> r | _ -> failwith "Expected ArrVal.Ref. Bad transform."
+
+        static let index arrVal expVal = 
+            let index = ExpVal.toNum expVal
+            (arrVal |> ArrVal.toRef |> ExpVal.toNum) + index |> ExpVal.Num |> DenVal.Ref
+        static member make expVal1 expVal2 =
+            let length = ExpVal.toNum expVal1
+            let ref = List.init length (fun _ -> Store.newRef expVal2) |> List.head
+            ArrVal.Ref (ref |> DenVal.toRef)
+        static member ref arrVal expVal =
+            Store.deRef (index arrVal expVal)
+        static member set arrVal expVal1 expVal2 =
+            Store.setRef (index arrVal expVal1) expVal2
 
 and Exp =
     | Const of num:int
@@ -130,6 +150,9 @@ and Exp =
     | Right of exp:Exp                                  // Section 4.4
     | SetLeft of exp1:Exp * exp2:Exp                    // Section 4.4
     | SetRight of exp1:Exp * exp2:Exp                   // Section 4.4
+    | NewArray of exp1:Exp * exp2:Exp                   // Exercise 4.29
+    | ArrayRef of exp1:Exp * exp2:Exp                   // Exercise 4.29
+    | ArraySet of exp1:Exp * exp2:Exp * exp3:Exp        // Exercise 4.29
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -284,6 +307,19 @@ and Exp =
                 let pair = Exp.valueOf env exp1 |> ExpVal.toMutPair
                 let value = Exp.valueOf env exp2
                 MutPair.setRight pair value
+            | Exp.NewArray (exp1, exp2) ->          // Exercise 4.29
+                let length = Exp.valueOf env exp1
+                let value = Exp.valueOf env exp2
+                ExpVal.ArrVal (ArrVal.make length value)
+            | Exp.ArrayRef (exp1, exp2) ->          // Exercise 4.29
+                let arrVal = Exp.valueOf env exp1 |> ExpVal.toArrVal
+                let index = Exp.valueOf env exp2
+                ArrVal.ref arrVal index
+            | Exp.ArraySet (exp1, exp2, exp3) ->    // Exercise 4.29
+                let arrVal = Exp.valueOf env exp1 |> ExpVal.toArrVal
+                let index = Exp.valueOf env exp2
+                let value = Exp.valueOf env exp3
+                ArrVal.set arrVal index value
 
 [<RequireQualifiedAccess>]
 type Program =
