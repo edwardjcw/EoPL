@@ -194,6 +194,11 @@ let ``parse newarray, arrayset, arrayref`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
+let ``parse arraylength`` () =
+    let programText = "let [x = newarray(3, 0)] in arraylength(x)"
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 3)
+
 let runTests () =
     let tests = 
         [ 
@@ -232,6 +237,7 @@ let runTests () =
             ``parse setleft and left``
             ``parse setright and right``
             ``parse newarray, arrayset, arrayref``
+            ``parse arraylength``
         ]
     tests |> List.iter (fun test -> test())
 

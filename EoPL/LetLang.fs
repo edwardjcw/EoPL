@@ -32,6 +32,7 @@ and Proc =
 and Store() =
     static let mutable store = Map<int, ExpVal> []
     static let mutable nextLoc = 0
+    static member initialize () = store <- Map.empty
     static member newRef value =
         let loc = nextLoc
         nextLoc <- nextLoc + 1
@@ -93,21 +94,25 @@ and MutPair =
 
 // ArrVal = (Ref(ExpVal)) array       // Exercise 4.29
 and ArrVal =
-    | Ref of ExpVal     // keep only the ref from the first element
+    | Ref of ExpVal     // keep only the ref from the first element, which is length (Exercise 4.30)
     with
         static member toRef = function | ArrVal.Ref r -> r | _ -> failwith "Expected ArrVal.Ref. Bad transform."
 
         static let index arrVal expVal = 
-            let index = ExpVal.toNum expVal
+            let index = (ExpVal.toNum expVal) + 1
+            let length = ExpVal.toNum (ArrVal.length arrVal)
+            if index < 1 || index > length then failwith "Array index out of bounds."
             (arrVal |> ArrVal.toRef |> ExpVal.toNum) + index |> ExpVal.Num |> DenVal.Ref
         static member make expVal1 expVal2 =
-            let length = ExpVal.toNum expVal1
-            let ref = List.init length (fun _ -> Store.newRef expVal2) |> List.head
+            let length = (ExpVal.toNum expVal1) + 1 // extra to accomodate saving the length as the first element
+            let ref = List.init length (fun i -> if i = 0 then Store.newRef expVal1 else Store.newRef expVal2) |> List.head
             ArrVal.Ref (ref |> DenVal.toRef)
         static member ref arrVal expVal =
             Store.deRef (index arrVal expVal)
         static member set arrVal expVal1 expVal2 =
             Store.setRef (index arrVal expVal1) expVal2
+        static member length arrVal =               // Exercise 4.30
+            Store.deRef (arrVal |> ArrVal.toRef |> DenVal.Ref)
 
 and Exp =
     | Const of num:int
@@ -153,6 +158,7 @@ and Exp =
     | NewArray of exp1:Exp * exp2:Exp                   // Exercise 4.29
     | ArrayRef of exp1:Exp * exp2:Exp                   // Exercise 4.29
     | ArraySet of exp1:Exp * exp2:Exp * exp3:Exp        // Exercise 4.29
+    | ArrayLength of exp:Exp                            // Exercise 4.30
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -320,9 +326,14 @@ and Exp =
                 let index = Exp.valueOf env exp2
                 let value = Exp.valueOf env exp3
                 ArrVal.set arrVal index value
+            | Exp.ArrayLength exp ->                // Exercise 4.30
+                let arrVal = Exp.valueOf env exp |> ExpVal.toArrVal
+                ArrVal.length arrVal
 
 [<RequireQualifiedAccess>]
 type Program =
     | A of Exp
     with
-        static member valueOfProgram (A exp) = Exp.valueOf Env.Empty exp
+        static member valueOfProgram (A exp) = 
+            Store.initialize() |> ignore
+            Exp.valueOf Env.Empty exp

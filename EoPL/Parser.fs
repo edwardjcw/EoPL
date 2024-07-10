@@ -125,11 +125,13 @@ let mutablePairExp =
 let newArrayExp = skipString "newarray(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString ")" |>> Exp.NewArray
 let arrayRefExp = skipString "arrayref(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString ")" |>> Exp.ArrayRef
 let arraySetExp = skipString "arrayset(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> ws .>> skipString ")" |>> (fun ((exp1, exp2), exp3) -> Exp.ArraySet(exp1, exp2, exp3))
+let arrayLengthExp = skipString "arraylength(" >>. ws >>. pexp .>> ws .>> skipString ")" |>> Exp.ArrayLength
 let arrayExp =
     choice [
         newArrayExp
         arrayRefExp
         arraySetExp
+        arrayLengthExp
     ]
 
 let pprogram : Parser<Program, unit> = ws >>. pexp |>> Program.A
