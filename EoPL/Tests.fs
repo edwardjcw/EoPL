@@ -199,6 +199,25 @@ let ``parse arraylength`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 3)
 
+let ``parse ref, deref, setref`` () =
+    let programText = 
+        "
+            letmutable [a = 3]
+            in letmutable [b = 4]
+               in let [swap = proc (x) proc (y)
+                               let [temp = deref(x)]
+                               in begin
+                                   setref(x,deref(y));
+                                   setref(y,temp)
+                                  end]
+                  in begin
+                      ((swap ref a) ref b);
+                      -(a,b)
+                     end
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
 let runTests () =
     let tests = 
         [ 
@@ -238,6 +257,7 @@ let runTests () =
             ``parse setright and right``
             ``parse newarray, arrayset, arrayref``
             ``parse arraylength``
+            ``parse ref, deref, setref``
         ]
     tests |> List.iter (fun test -> test())
 

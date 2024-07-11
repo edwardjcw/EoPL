@@ -48,13 +48,13 @@ and Store() =
             store <- store.Add(key, value)
             ExpVal.Unit
 
-// ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal //+ REF
+// ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal + REF
 and ExpVal =
     | Num of int
     | Bool of bool
     | List of ExpVal list                            // Exercise 3.9
     | Proc of Proc                                   // pg 79
-    //| Ref of ExpVal                                  // Section 4.2
+    | Ref of ExpVal                                  // Exercise 4.35
     | MutPair of MutPair                             // Section 4.4
     | ArrVal of ArrVal                               // Exercise 4.29
     | Unit                                           // Section 4.2
@@ -63,9 +63,11 @@ and ExpVal =
         static member toBool = function | ExpVal.Bool b -> b | _ -> failwith "Expected ExpVal.Bool. Bad transform."
         static member toList = function | ExpVal.List l -> l | _ -> failwith "Expected ExpVal.List. Bad transform."     // Exercise 3.9
         static member toProc = function | ExpVal.Proc p -> p | _ -> failwith "Expected ExpVal.Proc. Bad transform."    // pg. 79
-        //static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Section 4.2
+        static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Exercise 4.35
         static member toMutPair = function | ExpVal.MutPair p -> p | _ -> failwith "Expected ExpVal.MutPair. Bad transform." // Section 4.4
         static member toArrVal = function | ExpVal.ArrVal a -> a | _ -> failwith "Expected ExpVal.ArrVal. Bad transform." // Exercise 4.29
+
+        static member toDenValRef = function | ExpVal.Ref r -> DenVal.Ref r | _ -> failwith "Expected ExpVal.Ref. Bad transform."
 
 // DenVal = Ref(ExpVal) + ExpVal            // Exercise 4.20 modified
 and DenVal =
@@ -159,6 +161,9 @@ and Exp =
     | ArrayRef of exp1:Exp * exp2:Exp                   // Exercise 4.29
     | ArraySet of exp1:Exp * exp2:Exp * exp3:Exp        // Exercise 4.29
     | ArrayLength of exp:Exp                            // Exercise 4.30
+    | Ref of var:Var                                    // Exercise 4.35
+    | DeRef of exp:Exp                                  // Exercise 4.35
+    | SetRef of exp1:Exp * exp2:Exp                     // Exercise 4.35
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -329,6 +334,18 @@ and Exp =
             | Exp.ArrayLength exp ->                // Exercise 4.30
                 let arrVal = Exp.valueOf env exp |> ExpVal.toArrVal
                 ArrVal.length arrVal
+            | Exp.Ref var ->                        // Exercise 4.35
+                let value = Env.apply var env
+                match value with
+                | DenVal.Ref loc -> loc |> ExpVal.Ref
+                | _ -> failwith "Expected reference."
+            | Exp.DeRef exp ->                      // Exercise 4.35
+                let loc = Exp.valueOf env exp |> ExpVal.toDenValRef
+                Store.deRef loc
+            | Exp.SetRef (exp1, exp2) ->            // Exercise 4.35 
+                let loc = Exp.valueOf env exp1 |> ExpVal.toDenValRef
+                let value = Exp.valueOf env exp2
+                Store.setRef loc value
 
 [<RequireQualifiedAccess>]
 type Program =

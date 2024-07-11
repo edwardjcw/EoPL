@@ -95,14 +95,16 @@ let procedureExp =
     ]
 
 //let newRefExp = skipString "newref(" >>. ws >>. pexp .>> ws .>> skipString ")" |>> Exp.NewRef
-//let deRefExp = skipString "deref(" >>. ws >>. pexp .>> skipString ")" |>> Exp.DeRef
-//let setRefExp = skipString "setref(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.SetRef
+let deRefExp = skipString "deref(" >>. ws >>. pexp .>> skipString ")" |>> Exp.DeRef
+let setRefExp = skipString "setref(" >>. ws >>. pexp .>> ws .>> skipString "," .>> ws .>>. pexp .>> skipString ")" |>> Exp.SetRef
+let refExp = skipString "ref" >>. ws >>. pvar |>> Exp.Ref
 let setExp = skipString "set" >>. ws >>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp |>> Exp.Assign
-let refExp =
+let referenceExp =
     choice [
         //newRefExp
-        //deRefExp
-        //setRefExp
+        refExp
+        deRefExp
+        setRefExp
         setExp
     ]
 
@@ -141,7 +143,7 @@ do pexpRef.Value <-
         procedureExp
         letTypeExp
         mutablePairExp
-        refExp
+        referenceExp
         mathOpExp
         listOpExp
         beginExp
