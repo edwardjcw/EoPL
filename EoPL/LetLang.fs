@@ -205,7 +205,10 @@ and Exp =
                 match value with
                 | DenVal.Ref _ -> 
                     match Store.deRef value with
-                    | ExpVal.Thunk t -> Exp.valueOfThunk t
+                    | ExpVal.Thunk t -> 
+                        let v = Exp.valueOfThunk t
+                        Store.setRef value v |> ignore
+                        v
                     | v -> v
                 | DenVal.ExpVal value -> value
             | Exp.Let(exps, body) ->                // Exercise 3.16 modified

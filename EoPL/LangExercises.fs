@@ -91,6 +91,23 @@ let ``parse Exercise 3.24 not even`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 0)
 
+let ``parse Exercise 4.39`` () =
+    let programText = 
+        "
+            letproc f (x) = begin 
+                             -(x,2);
+                             -(x,2)
+                            end
+            in let [g = letmutable [counter = minus(1)]
+                        in proc(x) begin
+                                    set counter = -(counter,minus(1));
+                                    -(x,counter)
+                                   end]
+            in (f lazy (g 3))
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 1)
+
 let runExercises () =
     let exercises = 
         [ 
@@ -98,5 +115,6 @@ let runExercises () =
             ``parse Exercise 3.24 even``
             ``parse Exercise 3.24 odd``
             ``parse Exercise 3.24 not even``
+            ``parse Exercise 4.39``
         ]
     exercises |> List.iter (fun test -> test())
