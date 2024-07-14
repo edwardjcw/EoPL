@@ -210,7 +210,10 @@ and Exp =
                         Store.setRef value v |> ignore
                         v
                     | v -> v
-                | DenVal.ExpVal value -> value
+                | DenVal.ExpVal value ->
+                    match value with
+                    | ExpVal.Thunk t -> Exp.valueOfThunk t
+                    | _ -> value
             | Exp.Let(exps, body) ->                // Exercise 3.16 modified
                 let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
                 let env1 = varsValues |> List.fold (fun acc (var, value) -> Env.Extend(var, DenVal.ExpVal value, acc)) env
