@@ -218,6 +218,16 @@ let ``parse ref, deref, setref`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
+let ``parse lazy`` () =
+    let programText = 
+        "
+            letproc f (x) = -(x,2)
+            in letproc g (x) = -(x,1)
+               in (f lazy (g 3))
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 0)
+
 let runTests () =
     let tests = 
         [ 
@@ -258,6 +268,7 @@ let runTests () =
             ``parse newarray, arrayset, arrayref``
             ``parse arraylength``
             ``parse ref, deref, setref``
+            ``parse lazy``
         ]
     tests |> List.iter (fun test -> test())
 

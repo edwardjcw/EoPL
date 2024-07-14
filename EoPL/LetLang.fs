@@ -48,15 +48,16 @@ and Store() =
             store <- store.Add(key, value)
             ExpVal.Unit
 
-// ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal + REF
+// ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal + REF + Thunk + UNIT
 and ExpVal =
     | Num of int
     | Bool of bool
     | List of ExpVal list                            // Exercise 3.9
     | Proc of Proc                                   // pg 79
-    | Ref of ExpVal                                  // Exercise 4.35
+    | Ref of ExpVal                                     // Exercise 4.35
     | MutPair of MutPair                             // Section 4.4
     | ArrVal of ArrVal                               // Exercise 4.29
+    | Thunk of Thunk                                 // Section 4.5.2
     | Unit                                           // Section 4.2
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
@@ -66,6 +67,7 @@ and ExpVal =
         static member toRef = function | ExpVal.Ref r -> r | _ -> failwith "Expected ExpVal.Ref. Bad transform."      // Exercise 4.35
         static member toMutPair = function | ExpVal.MutPair p -> p | _ -> failwith "Expected ExpVal.MutPair. Bad transform." // Section 4.4
         static member toArrVal = function | ExpVal.ArrVal a -> a | _ -> failwith "Expected ExpVal.ArrVal. Bad transform." // Exercise 4.29
+        static member toThunk = function | ExpVal.Thunk t -> t | _ -> failwith "Expected ExpVal.Thunk. Bad transform." // Section 4.5.2
 
         static member toDenValRef = function | ExpVal.Ref r -> DenVal.Ref r | _ -> failwith "Expected ExpVal.Ref. Bad transform."
 
@@ -116,6 +118,9 @@ and ArrVal =
         static member length arrVal =               // Exercise 4.30
             Store.deRef (arrVal |> ArrVal.toRef |> DenVal.Ref)
 
+and Thunk =                             // Section 4.5.2
+    | Thunk of Exp * Env
+
 and Exp =
     | Const of num:int
     | IsZero of exp1:Exp
@@ -164,6 +169,7 @@ and Exp =
     | Ref of var:Var                                    // Exercise 4.35
     | DeRef of exp:Exp                                  // Exercise 4.35
     | SetRef of exp1:Exp * exp2:Exp                     // Exercise 4.35
+    | Lazy of exp:Exp                                   // Section 4.5.2
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -194,10 +200,13 @@ and Exp =
                 let num1 = Exp.valueOf env exp1 |> ExpVal.toNum
                 let num2 = Exp.valueOf env exp2 |> ExpVal.toNum
                 ExpVal.Num (num1 - num2)
-            | Exp.Var var ->                        // Section 4.3 modified
+            | Exp.Var var ->                        // Section 4.5.2 modified
                 let value = Env.apply var env
                 match value with
-                | DenVal.Ref _ -> Store.deRef value
+                | DenVal.Ref _ -> 
+                    match Store.deRef value with
+                    | ExpVal.Thunk t -> Exp.valueOfThunk t
+                    | v -> v
                 | DenVal.ExpVal value -> value
             | Exp.Let(exps, body) ->                // Exercise 3.16 modified
                 let varsValues = exps |> List.map (fun (var, exp) -> (var, Exp.valueOf env exp))
@@ -346,6 +355,9 @@ and Exp =
                 let loc = Exp.valueOf env exp1 |> ExpVal.toDenValRef
                 let value = Exp.valueOf env exp2
                 Store.setRef loc value
+            | Exp.Lazy exp ->                       // Section 4.5.2
+                ExpVal.Thunk (Thunk.Thunk (exp, env))
+        static member valueOfThunk (Thunk.Thunk (exp, env)) = Exp.valueOf env exp
 
 [<RequireQualifiedAccess>]
 type Program =
