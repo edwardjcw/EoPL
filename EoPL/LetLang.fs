@@ -7,7 +7,9 @@ type Vars = Var list
 type Env =
     | Empty
     | Extend of var:Var * value:DenVal * savedEnv:Env
+    | ExtendStar of vars:Vars * values:DenVal list * savedEnv:Env
     | ExtendRec of (Var * DenVal) list * savedEnv:Env  // Exercise 3.33 modified
+    | ExtendWithSelfAndSuper of self:Obj * superName:Var * savedEnv:Env  // Section 9.4.2
     with
         static member apply searchVar = function
             | Empty -> failwith $"Variable {searchVar} not found"
@@ -15,11 +17,22 @@ type Env =
             | Extend(savedVar, savedValue, _) when savedVar = searchVar -> savedValue
             | Extend(_, _, savedEnv) -> Env.apply searchVar savedEnv
 
+            | ExtendStar(vars, values, savedEnv) -> 
+                vars
+                |> List.tryFind (fun v -> v = searchVar)
+                |> Option.map (fun v -> values.[vars |> List.findIndex (fun x -> x = v)])
+                |> function Some(x) -> x | None -> Env.apply searchVar savedEnv
+
             | ExtendRec(procs, savedEnv) ->     // Exercise 4.19 modified
                 procs
                 |> List.tryFind (fun (pName, _) -> pName = searchVar)
                 |> Option.map snd
                 |> function Some(x) -> x | None -> Env.apply searchVar savedEnv
+
+            | ExtendWithSelfAndSuper(self, superName, savedEnv) -> 
+                if searchVar = "%self" then DenVal.ExpVal (ExpVal.Obj self)
+                else if searchVar = "%super" then DenVal.ExpVal (ExpVal.Obj (Obj.newObj superName))
+                else Env.apply searchVar savedEnv
 
 and Proc =
     | Procedure of Vars * Exp * Env                 // Exercise 3.21 modified
@@ -48,7 +61,65 @@ and Store() =
             store <- store.Add(key, value)
             ExpVal.Unit
 
-// ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal + REF + Thunk + UNIT
+and ClassEnv() =                        // Section 9.4.3
+    static let mutable classEnv = Map<Var, Class> []
+    static let appendFieldNames (superFields: Vars) (newFields: Vars) = 
+        let rec looper superFields1 result = 
+            match superFields1 with
+            | [] -> (result |> List.rev) @ newFields
+            | f::rest -> 
+                if newFields |> List.exists (fun x -> x = f) then 
+                    let freshIdentifier = f + "%shadowed"
+                    looper rest (freshIdentifier::result)
+                else looper rest (f::result)
+        looper superFields []
+    static let initializeClassDecl (ClassDecl(className, superName, fieldNames, methods)) =
+        let fieldNames1 = appendFieldNames (Class.toFieldNames (ClassEnv.lookup superName)) fieldNames
+        let superMethodEnv = Class.toMethodEnv (ClassEnv.lookup superName)
+        let newMethodEnv = MethodEnv().initializeMethodEnv methods superName fieldNames1
+        let mergedMethodEnv = MethodEnv.mergeMethodEnv superMethodEnv newMethodEnv
+        let newClass = Class.Class(Some superName, fieldNames1, mergedMethodEnv)
+        classEnv <- classEnv.Add(className, newClass)
+
+    static member addClass className classDef = classEnv <- classEnv.Add(className, classDef)
+    static member lookup className = 
+        if classEnv.ContainsKey(className) then classEnv.[className]
+        else failwith $"Class {className} is unknown"
+    static member initializeClassEnv classDecls = 
+        classEnv <- Map.empty
+        let superObj = Class.Class(None, [], MethodEnv())
+        classEnv <- classEnv.Add("object", superObj)
+        classDecls |> List.iter initializeClassDecl
+
+and MethodEnv() =               // Section 9.4.4
+    let mutable methodEnv = Map<Var, Method> []
+    member _.add methodName method = methodEnv <- methodEnv.Add(methodName, method)
+    member _.copyOfEnv = 
+        let mutable newEnv = Map<Var, Method> []
+        methodEnv |> Map.iter (fun k v -> newEnv <- newEnv.Add(k, v))
+        newEnv
+    member this.initializeMethodEnv methods superName (fieldNames: Vars) =
+        methodEnv <- Map.empty
+        methods |> List.iter (fun (MethodDecl(methodName, parameters, body)) -> 
+            let newMethod = Method.Method(parameters, body, superName, fieldNames)
+            methodEnv <- methodEnv.Add(methodName, newMethod))
+        this
+    member _.tryGetMethod methodName =
+        if methodEnv.ContainsKey(methodName) then Some(methodEnv.[methodName])
+        else None
+    static member findMethod className methodName =
+        let classDef = ClassEnv.lookup className
+        let (methodEnv: MethodEnv) = Class.toMethodEnv classDef
+        match methodEnv.tryGetMethod methodName with
+        | Some(method) -> method
+        | None -> failwith $"Method {methodName} not found in class {className}"
+    static member mergeMethodEnv superMethodEnv (newMethodEnv : MethodEnv) =
+        let mergedMethodEnv = MethodEnv()
+        superMethodEnv.copyOfEnv |> Map.iter (fun k v -> mergedMethodEnv.add k v)
+        newMethodEnv.copyOfEnv |> Map.iter (fun k v -> mergedMethodEnv.add k v)
+        mergedMethodEnv
+
+// ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal + REF + Thunk + Obj + Str + UNIT
 and ExpVal =
     | Num of int
     | Bool of bool
@@ -58,6 +129,8 @@ and ExpVal =
     | MutPair of MutPair                             // Section 4.4
     | ArrVal of ArrVal                               // Exercise 4.29
     | Thunk of Thunk                                 // Section 4.5.2
+    | Obj of Obj                                     // Section 9.3
+    | Str of string
     | Unit                                           // Section 4.2
     with
         static member toNum = function | ExpVal.Num n -> n | _ -> failwith "Expected ExpVal.Num. Bad transform."
@@ -68,6 +141,8 @@ and ExpVal =
         static member toMutPair = function | ExpVal.MutPair p -> p | _ -> failwith "Expected ExpVal.MutPair. Bad transform." // Section 4.4
         static member toArrVal = function | ExpVal.ArrVal a -> a | _ -> failwith "Expected ExpVal.ArrVal. Bad transform." // Exercise 4.29
         static member toThunk = function | ExpVal.Thunk t -> t | _ -> failwith "Expected ExpVal.Thunk. Bad transform." // Section 4.5.2
+        static member toObj = function | ExpVal.Obj o -> o | _ -> failwith "Expected ExpVal.Obj. Bad transform." // Section 9.3
+        static member toStr = function | ExpVal.Str s -> s | _ -> failwith "Expected ExpVal.Str. Bad transform."
 
         static member toDenValRef = function | ExpVal.Ref r -> DenVal.Ref r | _ -> failwith "Expected ExpVal.Ref. Bad transform."
 
@@ -121,6 +196,33 @@ and ArrVal =
 and Thunk =                             // Section 4.5.2
     | Thunk of Exp * Env
 
+and Obj =                               // Section 9.3
+    | Obj of className:Var * fields:DenVal list
+    with 
+        static member toClassName = function | Obj(className, _) -> className | _ -> failwith "Expected Obj. Bad transform."
+        static member toFields = function | Obj(_, fields) -> fields | _ -> failwith "Expected Obj. Bad transform."
+
+        static member newObj className =
+            let fieldNames = Class.toFieldNames (ClassEnv.lookup className)
+            let fields = fieldNames |> List.map (fun f -> Store.newRef (ExpVal.List [ExpVal.Str "uninitializedField"; ExpVal.Str f]))
+            Obj.Obj(className, fields)
+
+and Method =                            // Section 9.3
+    | Method of Vars * body:Exp * superName:Var * fieldNames:Vars
+    with
+        static member applyMethod (Method.Method(vars, body, superName, fieldNames)) self args =
+            let env1 = Env.ExtendStar(fieldNames, (Obj.toFields self), Env.Empty)
+            let env2 = Env.ExtendWithSelfAndSuper(self, superName, env1)
+            let env3 = Env.ExtendStar(vars, (args |> List.map Store.newRef), env2)
+            Exp.valueOf env3 body
+
+and Class =                             // Section 9.4.3
+    | Class of superName:Var option * fieldNames:Vars * methodEnv:MethodEnv
+    with
+        static member toSuperName = function | Class(superName, _, _) -> superName | _ -> failwith "Expected Class. Bad transform."
+        static member toFieldNames = function | Class(_, fieldNames, _) -> fieldNames | _ -> failwith "Expected Class. Bad transform."
+        static member toMethodEnv = function | Class(_, _, methodEnv) -> methodEnv | _ -> failwith "Expected Class. Bad transform."
+
 and Exp =
     | Const of num:int
     | IsZero of exp1:Exp
@@ -170,6 +272,10 @@ and Exp =
     | DeRef of exp:Exp                                  // Exercise 4.35
     | SetRef of exp1:Exp * exp2:Exp                     // Exercise 4.35
     | Lazy of exp:Exp                                   // Section 4.5.2
+    | New of className:Var * rands:Exp list             // Section 9.3
+    | Send of obj:Exp * methodName:Var * rands:Exp list // Section 9.3
+    | Super of methodName:Var * rands:Exp list          // Section 9.3
+    | Self                                              // Section 9.3
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -363,12 +469,38 @@ and Exp =
                 Store.setRef loc value
             | Exp.Lazy exp ->                       // Section 4.5.2
                 ExpVal.Thunk (Thunk.Thunk (exp, env))
+            | Exp.New (className, rands) ->         // Section 9.3
+                let fields = rands |> List.map ((Exp.valueOf env) >> DenVal.ExpVal)
+                ExpVal.Obj (Obj.Obj(className, fields))
+            | Exp.Send (obj, methodName, rands) ->  // Section 9.3
+                let objVal = Exp.valueOf env obj |> ExpVal.toObj
+                let method = MethodEnv.findMethod (Obj.toClassName objVal) methodName
+                let args = rands |> List.map (Exp.valueOf env)
+                Method.applyMethod method objVal args
+            | Exp.Super (methodName, rands) ->      // Section 9.3
+                let self = Env.apply "%self" env |> DenVal.toExpVal |> ExpVal.toObj
+                let super = Env.apply "%super" env |> DenVal.toExpVal |> ExpVal.toStr
+                let method = MethodEnv.findMethod super methodName
+                let args = rands |> List.map (Exp.valueOf env)
+                Method.applyMethod method self args
+            | Exp.Self ->                          // Section 9.3
+                let self = Env.apply "%self" env |> DenVal.toExpVal
+                self
         static member valueOfThunk (Thunk.Thunk (exp, env)) = Exp.valueOf env exp
+
+// Section 9.3
+and MethodDecl =
+    | MethodDecl of methodName:Var * parameters:Vars * body:Exp
+
+// Section 9.3
+and ClassDecl =
+    | ClassDecl of className:Var * superName:Var * fieldNames:Vars * methods:MethodDecl list
 
 [<RequireQualifiedAccess>]
 type Program =
-    | A of Exp
+    | A of ClassDecl list * Exp
     with
-        static member valueOfProgram (A exp) = 
-            Store.initialize() |> ignore
+        static member valueOfProgram (A(classDecls, exp)) = 
+            Store.initialize()
+            ClassEnv.initializeClassEnv classDecls
             Exp.valueOf Env.Empty exp
