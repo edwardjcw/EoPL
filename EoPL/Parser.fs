@@ -154,7 +154,7 @@ let methodDecl = skipString "method" >>. ws >>. pvar .>> ws .>> skipString "(" .
 
 let classDecl = skipString "class" >>. ws >>. pvar .>> ws .>> skipString "extends" .>> ws .>>. pvar .>> ws .>>. many (skipString "field" >>. ws >>. pvar .>> ws) .>>. many (methodDecl .>> ws) |>> (fun (((className, superClassName), fields), methods) -> ClassDecl.ClassDecl(className, superClassName, fields, methods))
 
-let pprogram : Parser<Program, unit> = many classDecl .>> ws .>>. pexp |>> Program.A
+let pprogram : Parser<Program, unit> = ws >>. many classDecl .>> ws .>>. pexp |>> Program.A
 do pexpRef.Value <- 
     choice [
         conditionalExp

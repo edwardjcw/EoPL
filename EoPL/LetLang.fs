@@ -470,7 +470,7 @@ and Exp =
             | Exp.Lazy exp ->                       // Section 4.5.2
                 ExpVal.Thunk (Thunk.Thunk (exp, env))
             | Exp.New (className, rands) ->         // Section 9.3
-                let fields = rands |> List.map ((Exp.valueOf env) >> DenVal.ExpVal)
+                let fields = rands |> List.map ((Exp.valueOf env) >> Store.newRef)
                 ExpVal.Obj (Obj.Obj(className, fields))
             | Exp.Send (obj, methodName, rands) ->  // Section 9.3
                 let objVal = Exp.valueOf env obj |> ExpVal.toObj
@@ -479,7 +479,7 @@ and Exp =
                 Method.applyMethod method objVal args
             | Exp.Super (methodName, rands) ->      // Section 9.3
                 let self = Env.apply "%self" env |> DenVal.toExpVal |> ExpVal.toObj
-                let super = Env.apply "%super" env |> DenVal.toExpVal |> ExpVal.toStr
+                let super = Env.apply "%super" env |> DenVal.toExpVal |> ExpVal.toObj |> Obj.toClassName
                 let method = MethodEnv.findMethod super methodName
                 let args = rands |> List.map (Exp.valueOf env)
                 Method.applyMethod method self args

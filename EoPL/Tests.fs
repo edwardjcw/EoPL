@@ -228,6 +228,86 @@ let ``parse lazy`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 0)
 
+let ``parse class self`` () =
+    let programText = 
+        "
+            class c1 extends object
+                method test1 () send self test2()
+                method test2 () 13
+            let [o1 = new c1()]
+            in send o1 test1()
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 13)
+
+let ``parse class method parameters`` () =
+    let programText = 
+        "
+            class c1 extends object
+                field x
+                field y
+                method initialize (initx, inity)
+                    begin
+                     set x = initx;
+                     set y = inity
+                    end
+                method move (dx, dy)
+                    begin
+                     set x = +(x,dx);
+                     set y = +(y,dy)
+                    end
+                method getLocation () list(x,y)
+            let [o1 = new c1(3,4)]
+            in begin 
+                send o1 move(1,1);
+                send o1 getLocation()
+               end
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.List [ExpVal.Num 4; ExpVal.Num 5])
+
+let ``parse class inheritance1`` () =
+    let programText = 
+        "
+            class c1 extends object
+                field x
+                method initialize (initx)
+                    set x = initx
+                method getX () x
+            class c2 extends c1
+                field y
+                method initialize (initx, inity)
+                    begin
+                     super initialize(initx);
+                     set y = inity
+                    end
+                method getY () y
+            let [o2 = new c2(3,4)]
+            in list(send o2 getX(), send o2 getY())
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.List [ExpVal.Num 3; ExpVal.Num 4])
+
+let ``parse class inheritance2`` () =
+    let programText = 
+        "
+            class c1 extends object
+                method initialize () 1
+                method m1 () send self m2()
+                method m2 () 13
+            class c2 extends c1
+                method m1 () 22
+                method m2 () 23
+                method m3 () super m1()
+            class c3 extends c2
+                method m1 () 32
+                method m2 () 33
+            let [o3 = new c3()]
+            in send o3 m3()
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 33)
+
 let runTests () =
     let tests = 
         [ 
@@ -269,6 +349,10 @@ let runTests () =
             ``parse arraylength``
             ``parse ref, deref, setref``
             ``parse lazy``
+            ``parse class self``
+            ``parse class method parameters``
+            ``parse class inheritance1``
+            ``parse class inheritance2``
         ]
     tests |> List.iter (fun test -> test())
 
