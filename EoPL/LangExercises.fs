@@ -142,6 +142,51 @@ let ``parse Exercise 9.1(1)`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 2)
 
+let ``parse Exercise 9.1(2)`` () =
+    let programText = 
+        "
+            class queue extends object
+                field q
+                field count
+                method initialize () 
+                   begin
+                      set q = emptylist;
+                      set count = 0
+                   end
+                method empty () null?(q)
+                method enqueue (x) 
+                   begin
+                      set q = cons(x,q);
+                      set count = +(count, 1)
+                   end
+                method dequeue ()
+                   letmutable [value = 0]
+                   in letrec [f (x) = if null?(cdr(x)) then
+                                        begin 
+                                         set value = car(x);
+                                         emptylist
+                                        end
+                                      else cons(car(x), (f cdr(x)))]
+                      in let [q2 = (f q)]
+                         in begin
+                             set q = q2;
+                             set count = +(count, 1);
+                             value
+                            end
+                   method getCount () count
+            let [obj = new queue()]
+            in begin
+                 send obj enqueue(1);
+                 send obj enqueue(2);
+                 send obj enqueue(3);
+                 send obj enqueue(4);
+                 send obj dequeue();
+                 list(send obj dequeue(), send obj getCount())
+               end
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.List [ExpVal.Num 2; ExpVal.Num 6])
+
 let runExercises () =
     let exercises = 
         [ 
@@ -151,5 +196,6 @@ let runExercises () =
             ``parse Exercise 3.24 not even``
             ``parse Exercise 4.39``
             ``parse Exercise 9.1(1)``
+            ``parse Exercise 9.1(2)``
         ]
     exercises |> List.iter (fun test -> test())
