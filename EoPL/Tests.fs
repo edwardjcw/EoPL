@@ -232,6 +232,7 @@ let ``parse class self`` () =
     let programText = 
         "
             class c1 extends object
+                method initialize () 1
                 method test1 () send self test2()
                 method test2 () 13
             let [o1 = new c1()]

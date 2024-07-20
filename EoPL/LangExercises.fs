@@ -108,6 +108,40 @@ let ``parse Exercise 4.39`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 1)
 
+let ``parse Exercise 9.1(1)`` () =
+    let programText = 
+        "
+            class queue extends object
+                field q
+                method initialize () set q = emptylist
+                method empty () null?(q)
+                method enqueue (x) set q = cons(x,q)
+                method dequeue ()
+                   letmutable [value = 0]
+                   in letrec [f (x) = if null?(cdr(x)) then
+                                        begin 
+                                         set value = car(x);
+                                         emptylist
+                                        end
+                                      else cons(car(x), (f cdr(x)))]
+                      in let [q2 = (f q)]
+                         in begin
+                             set q = q2;
+                             value
+                            end
+            let [obj = new queue()]
+            in begin
+                 send obj enqueue(1);
+                 send obj enqueue(2);
+                 send obj enqueue(3);
+                 send obj enqueue(4);
+                 send obj dequeue();
+                 send obj dequeue()
+               end
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 2)
+
 let runExercises () =
     let exercises = 
         [ 
@@ -116,5 +150,6 @@ let runExercises () =
             ``parse Exercise 3.24 odd``
             ``parse Exercise 3.24 not even``
             ``parse Exercise 4.39``
+            ``parse Exercise 9.1(1)``
         ]
     exercises |> List.iter (fun test -> test())

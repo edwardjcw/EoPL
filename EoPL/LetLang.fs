@@ -470,8 +470,11 @@ and Exp =
             | Exp.Lazy exp ->                       // Section 4.5.2
                 ExpVal.Thunk (Thunk.Thunk (exp, env))
             | Exp.New (className, rands) ->         // Section 9.3
-                let fields = rands |> List.map ((Exp.valueOf env) >> Store.newRef)
-                ExpVal.Obj (Obj.Obj(className, fields))
+                let args = rands |> List.map (Exp.valueOf env)
+                let obj = Obj.newObj className
+                let method = MethodEnv.findMethod className "initialize"
+                Method.applyMethod method obj args |> ignore
+                ExpVal.Obj obj
             | Exp.Send (obj, methodName, rands) ->  // Section 9.3
                 let objVal = Exp.valueOf env obj |> ExpVal.toObj
                 let method = MethodEnv.findMethod (Obj.toClassName objVal) methodName
