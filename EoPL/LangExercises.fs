@@ -187,6 +187,61 @@ let ``parse Exercise 9.1(2)`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.List [ExpVal.Num 2; ExpVal.Num 6])
 
+let ``parse Exercise 9.1(3)`` () =
+    let programText = 
+        "
+            class queue extends object
+                field q
+                field count
+                field counter
+                method initialize (sCounter) 
+                   begin
+                      set q = emptylist;
+                      set count = 0;
+                      set counter = sCounter
+                   end
+                method empty () null?(q)
+                method enqueue (x) 
+                   begin
+                      set q = cons(x,q);
+                      set count = +(count, 1);
+                      setref(counter, +(deref(counter), 1))
+                   end
+                method dequeue ()
+                   letmutable [value = 0]
+                   in letrec [f (x) = if null?(cdr(x)) then
+                                        begin 
+                                         set value = car(x);
+                                         emptylist
+                                        end
+                                      else cons(car(x), (f cdr(x)))]
+                      in let [q2 = (f q)]
+                         in begin
+                             set q = q2;
+                             set count = +(count, 1);
+                             setref(counter, +(deref(counter), 1));
+                             value
+                            end
+                   method getCount () count
+            letmutable [sharedCounter = 0]
+            in let [obj1 = new queue(ref sharedCounter)]
+                   [obj2 = new queue(ref sharedCounter)]
+                in begin
+                      send obj1 enqueue(1);
+                      send obj1 enqueue(2);
+                      send obj1 enqueue(3);
+                      send obj1 enqueue(4);
+                      send obj1 dequeue();
+                      send obj2 enqueue(10);
+                      send obj2 enqueue(11);
+                      send obj2 dequeue();
+                      send obj1 dequeue();
+                      sharedCounter
+                   end
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 9)
+
 let runExercises () =
     let exercises = 
         [ 
@@ -197,5 +252,6 @@ let runExercises () =
             ``parse Exercise 4.39``
             ``parse Exercise 9.1(1)``
             ``parse Exercise 9.1(2)``
+            ``parse Exercise 9.1(3)``
         ]
     exercises |> List.iter (fun test -> test())
