@@ -309,6 +309,24 @@ let ``parse class inheritance2`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 33)
 
+let ``parse instanceof`` () =
+    let programText = 
+        "
+            class c1 extends object
+                method initialize () 1
+                class c2 extends c1
+                class c3 extends c2
+                class c4 extends object
+            let [o3 = new c3()]
+            in list(instanceof o3 c3,
+                    instanceof o3 c2,
+                    instanceof o3 c1,
+                    instanceof o3 object,
+                    instanceof o3 c4)
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.List [ExpVal.Bool true; ExpVal.Bool true; ExpVal.Bool true; ExpVal.Bool true; ExpVal.Bool false])
+
 let runTests () =
     let tests = 
         [ 

@@ -142,12 +142,14 @@ let newExp = skipString "new" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .
 let sendExp = skipString "send" >>. ws >>. pexp .>> ws .>>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pexp (skipString "," .>> ws) .>> ws .>> skipString ")" |>> (fun ((exp1, var), exps) -> Exp.Send(exp1, var, exps))
 let superExp = skipString "super" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pexp (skipString "," .>> ws) .>> ws .>> skipString ")" |>> Exp.Super
 let selfExp : Parser<Exp, unit> = skipString "self" |>> (fun _ -> Exp.Self)
+let instanceOfExp = skipString "instanceof" >>. ws >>. pexp .>> ws .>>. pvar |>> Exp.InstanceOf
 let objectExp =
     choice [
         newExp
         sendExp
         superExp
         selfExp
+        instanceOfExp
     ]
 
 let methodDecl = skipString "method" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>>. pexp |>> (fun ((var, vars), exp) -> MethodDecl.MethodDecl(var, vars, exp))

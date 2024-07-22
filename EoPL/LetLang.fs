@@ -206,6 +206,15 @@ and Obj =                               // Section 9.3
             let fieldNames = Class.toFieldNames (ClassEnv.lookup className)
             let fields = fieldNames |> List.map (fun f -> Store.newRef (ExpVal.List [ExpVal.Str "uninitializedField"; ExpVal.Str f]))
             Obj.Obj(className, fields)
+        static member instanceOf obj className =
+            let rec looper className1 =
+                if className = className1 then true
+                else
+                    let classDef = ClassEnv.lookup className1
+                    match Class.toSuperName classDef with
+                    | Some(superName) -> looper superName
+                    | None -> false
+            looper (Obj.toClassName obj)
 
 and Method =                            // Section 9.3
     | Method of Vars * body:Exp * superName:Var * fieldNames:Vars
@@ -276,6 +285,7 @@ and Exp =
     | Send of obj:Exp * methodName:Var * rands:Exp list // Section 9.3
     | Super of methodName:Var * rands:Exp list          // Section 9.3
     | Self                                              // Section 9.3
+    | InstanceOf of obj:Exp * className:Var             // Exercise 9.6
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -489,6 +499,9 @@ and Exp =
             | Exp.Self ->                          // Section 9.3
                 let self = Env.apply "%self" env |> DenVal.toExpVal
                 self
+            | Exp.InstanceOf (obj, className) ->    // Exercise 9.6
+                let objVal = Exp.valueOf env obj |> ExpVal.toObj
+                ExpVal.Bool (Obj.instanceOf objVal className)
         static member valueOfThunk (Thunk.Thunk (exp, env)) = Exp.valueOf env exp
 
 // Section 9.3
