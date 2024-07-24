@@ -215,6 +215,14 @@ and Obj =                               // Section 9.3
                     | Some(superName) -> looper superName
                     | None -> false
             looper (Obj.toClassName obj)
+        static member fieldRef (Obj.Obj(className, fields)) fieldName =  // Exercise 9.8
+            let fieldNames = Class.toFieldNames (ClassEnv.lookup className)
+            let index = fieldNames |> List.findIndex (fun f -> f = fieldName)
+            Store.deRef (fields.[index])
+        static member fieldSet (Obj.Obj(className, fields)) fieldName value =  // Exercise 9.8
+            let fieldNames = Class.toFieldNames (ClassEnv.lookup className)
+            let index = fieldNames |> List.findIndex (fun f -> f = fieldName)
+            Store.setRef (fields.[index]) value
 
 and Method =                            // Section 9.3
     | Method of Vars * body:Exp * superName:Var * fieldNames:Vars
@@ -286,6 +294,8 @@ and Exp =
     | Super of methodName:Var * rands:Exp list          // Section 9.3
     | Self                                              // Section 9.3
     | InstanceOf of obj:Exp * className:Var             // Exercise 9.6
+    | FieldRef of obj:Exp * fieldName:Var               // Exercise 9.8
+    | FieldSet of obj:Exp * fieldName:Var * exp:Exp     // Exercise 9.8
     with
         static member valueOf env = function
             | Exp.Const n -> 
@@ -502,6 +512,13 @@ and Exp =
             | Exp.InstanceOf (obj, className) ->    // Exercise 9.6
                 let objVal = Exp.valueOf env obj |> ExpVal.toObj
                 ExpVal.Bool (Obj.instanceOf objVal className)
+            | Exp.FieldRef (obj, fieldName) ->     // Exercise 9.8
+                let objVal = Exp.valueOf env obj |> ExpVal.toObj
+                Obj.fieldRef objVal fieldName
+            | Exp.FieldSet (obj, fieldName, exp) -> // Exercise 9.8 
+                let objVal = Exp.valueOf env obj |> ExpVal.toObj
+                let value = Exp.valueOf env exp
+                Obj.fieldSet objVal fieldName value
         static member valueOfThunk (Thunk.Thunk (exp, env)) = Exp.valueOf env exp
 
 // Section 9.3

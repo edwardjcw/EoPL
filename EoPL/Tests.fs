@@ -327,6 +327,29 @@ let ``parse instanceof`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.List [ExpVal.Bool true; ExpVal.Bool true; ExpVal.Bool true; ExpVal.Bool true; ExpVal.Bool false])
 
+let ``parse fieldref and fieldset`` () =
+    let programText = 
+        "
+            class c1 extends object
+                field x
+                method initialize () set x = 5
+            class c2 extends c1
+                field y
+                method initialize ()
+                   begin 
+                      super initialize();
+                      set y = 6
+                   end
+            let [o2 = new c2()]
+            in begin
+                fieldset o2 x = 10;
+                fieldset o2 y = 11;
+                list(fieldref o2 x, fieldref o2 y)
+               end
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.List [ExpVal.Num 10; ExpVal.Num 11])
+
 let runTests () =
     let tests = 
         [ 

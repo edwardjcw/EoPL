@@ -143,6 +143,8 @@ let sendExp = skipString "send" >>. ws >>. pexp .>> ws .>>. pvar .>> ws .>> skip
 let superExp = skipString "super" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pexp (skipString "," .>> ws) .>> ws .>> skipString ")" |>> Exp.Super
 let selfExp : Parser<Exp, unit> = skipString "self" |>> (fun _ -> Exp.Self)
 let instanceOfExp = skipString "instanceof" >>. ws >>. pexp .>> ws .>>. pvar |>> Exp.InstanceOf
+let fieldRefExp = skipString "fieldref" >>. ws >>. pexp .>> ws .>>. pvar |>> Exp.FieldRef
+let fieldSetExp = skipString "fieldset" >>. ws >>. pexp .>> ws .>>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp |>> (fun ((exp1, var), exp2) -> Exp.FieldSet(exp1, var, exp2))
 let objectExp =
     choice [
         newExp
@@ -150,6 +152,8 @@ let objectExp =
         superExp
         selfExp
         instanceOfExp
+        fieldRefExp
+        fieldSetExp
     ]
 
 let methodDecl = skipString "method" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>>. pexp |>> (fun ((var, vars), exp) -> MethodDecl.MethodDecl(var, vars, exp))
