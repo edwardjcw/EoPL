@@ -113,10 +113,10 @@ let ``parse Exercise 9.1(1)`` () =
         "
             class queue extends object
                 field q
-                method initialize () set q = emptylist
-                method empty () null?(q)
-                method enqueue (x) set q = cons(x,q)
-                method dequeue ()
+                public method initialize () set q = emptylist
+                public method empty () null?(q)
+                public method enqueue (x) set q = cons(x,q)
+                public method dequeue ()
                    letmutable [value = 0]
                    in letrec [f (x) = if null?(cdr(x)) then
                                         begin 
@@ -148,18 +148,18 @@ let ``parse Exercise 9.1(2)`` () =
             class queue extends object
                 field q
                 field count
-                method initialize () 
+                public method initialize () 
                    begin
                       set q = emptylist;
                       set count = 0
                    end
-                method empty () null?(q)
-                method enqueue (x) 
+                public method empty () null?(q)
+                public method enqueue (x) 
                    begin
                       set q = cons(x,q);
                       set count = +(count, 1)
                    end
-                method dequeue ()
+                public method dequeue ()
                    letmutable [value = 0]
                    in letrec [f (x) = if null?(cdr(x)) then
                                         begin 
@@ -173,7 +173,7 @@ let ``parse Exercise 9.1(2)`` () =
                              set count = +(count, 1);
                              value
                             end
-                   method getCount () count
+                 public method getCount () count
             let [obj = new queue()]
             in begin
                  send obj enqueue(1);
@@ -194,20 +194,20 @@ let ``parse Exercise 9.1(3)`` () =
                 field q
                 field count
                 field counter
-                method initialize (sCounter) 
+                public method initialize (sCounter) 
                    begin
                       set q = emptylist;
                       set count = 0;
                       set counter = sCounter
                    end
-                method empty () null?(q)
-                method enqueue (x) 
+                public method empty () null?(q)
+                public method enqueue (x) 
                    begin
                       set q = cons(x,q);
                       set count = +(count, 1);
                       setref(counter, +(deref(counter), 1))
                    end
-                method dequeue ()
+                public method dequeue ()
                    letmutable [value = 0]
                    in letrec [f (x) = if null?(cdr(x)) then
                                         begin 
@@ -222,7 +222,7 @@ let ``parse Exercise 9.1(3)`` () =
                              setref(counter, +(deref(counter), 1));
                              value
                             end
-                   method getCount () count
+                public method getCount () count
             letmutable [sharedCounter = 0]
             in let [obj1 = new queue(ref sharedCounter)]
                    [obj2 = new queue(ref sharedCounter)]

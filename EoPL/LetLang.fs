@@ -9,7 +9,7 @@ type Env =
     | Extend of var:Var * value:DenVal * savedEnv:Env
     | ExtendStar of vars:Vars * values:DenVal list * savedEnv:Env
     | ExtendRec of (Var * DenVal) list * savedEnv:Env  // Exercise 3.33 modified
-    | ExtendWithSelfAndSuper of self:Obj * superName:Var * savedEnv:Env  // Section 9.4.2
+    | ExtendWithSelfAndSuper of self:Obj * superName:Var option * savedEnv:Env  // Section 9.4.2
     with
         static member apply searchVar = function
             | Empty -> failwith $"Variable {searchVar} not found"
@@ -30,9 +30,10 @@ type Env =
                 |> function Some(x) -> x | None -> Env.apply searchVar savedEnv
 
             | ExtendWithSelfAndSuper(self, superName, savedEnv) -> 
-                if searchVar = "%self" then DenVal.ExpVal (ExpVal.Obj self)
-                else if searchVar = "%super" then DenVal.ExpVal (ExpVal.Obj (Obj.newObj superName))
-                else Env.apply searchVar savedEnv
+                match searchVar, superName with
+                | "%self", _ -> DenVal.ExpVal (ExpVal.Obj self)
+                | "%super", Some(superName) -> DenVal.ExpVal (ExpVal.Obj (Obj.newObj superName))
+                | _ -> Env.apply searchVar savedEnv
 
 and Proc =
     | Procedure of Vars * Exp * Env                 // Exercise 3.21 modified
@@ -76,7 +77,7 @@ and ClassEnv() =                        // Section 9.4.3
     static let initializeClassDecl (ClassDecl(className, superName, fieldNames, methods)) =
         let fieldNames1 = appendFieldNames (Class.toFieldNames (ClassEnv.lookup superName)) fieldNames
         let superMethodEnv = Class.toMethodEnv (ClassEnv.lookup superName)
-        let newMethodEnv = MethodEnv().initializeMethodEnv methods superName fieldNames1
+        let newMethodEnv = MethodEnv().initializeMethodEnv methods className fieldNames1        // Exercise 9.5
         let mergedMethodEnv = MethodEnv.mergeMethodEnv superMethodEnv newMethodEnv
         let newClass = Class.Class(Some superName, fieldNames1, mergedMethodEnv)
         classEnv <- classEnv.Add(className, newClass)
@@ -98,10 +99,10 @@ and MethodEnv() =               // Section 9.4.4
         let mutable newEnv = Map<Var, Method> []
         methodEnv |> Map.iter (fun k v -> newEnv <- newEnv.Add(k, v))
         newEnv
-    member this.initializeMethodEnv methods superName (fieldNames: Vars) =
+    member this.initializeMethodEnv methods className (fieldNames: Vars) =
         methodEnv <- Map.empty
-        methods |> List.iter (fun (MethodDecl(methodName, parameters, body)) -> 
-            let newMethod = Method.Method(parameters, body, superName, fieldNames)
+        methods |> List.iter (fun (MethodDecl(access, methodName, parameters, body)) -> 
+            let newMethod = Method.Method(access, parameters, body, className, fieldNames)      // Exercise 9.5
             methodEnv <- methodEnv.Add(methodName, newMethod))
         this
     member _.tryGetMethod methodName =
@@ -225,10 +226,11 @@ and Obj =                               // Section 9.3
             Store.setRef (fields.[index]) value
 
 and Method =                            // Section 9.3
-    | Method of Vars * body:Exp * superName:Var * fieldNames:Vars
+    | Method of access:Access * Vars * body:Exp * className:Var * fieldNames:Vars
     with
-        static member applyMethod (Method.Method(vars, body, superName, fieldNames)) self args =
+        static member applyMethod (Method.Method(_, vars, body, className, fieldNames)) self args =
             let env1 = Env.ExtendStar(fieldNames, (Obj.toFields self), Env.Empty)
+            let superName = Class.toSuperName (ClassEnv.lookup className)  // Exercise 9.5
             let env2 = Env.ExtendWithSelfAndSuper(self, superName, env1)
             let env3 = Env.ExtendStar(vars, (args |> List.map Store.newRef), env2)
             Exp.valueOf env3 body
@@ -239,6 +241,11 @@ and Class =                             // Section 9.4.3
         static member toSuperName = function | Class(superName, _, _) -> superName | _ -> failwith "Expected Class. Bad transform."
         static member toFieldNames = function | Class(_, fieldNames, _) -> fieldNames | _ -> failwith "Expected Class. Bad transform."
         static member toMethodEnv = function | Class(_, _, methodEnv) -> methodEnv | _ -> failwith "Expected Class. Bad transform."
+
+and Access =                            // Exercise 9.11
+    | Public
+    | Protected
+    | Private
 
 and Exp =
     | Const of num:int
@@ -493,13 +500,23 @@ and Exp =
                 let args = rands |> List.map (Exp.valueOf env)
                 let obj = Obj.newObj className
                 let method = MethodEnv.findMethod className "initialize"
-                Method.applyMethod method obj args |> ignore
-                ExpVal.Obj obj
+                match method with   // Exercise 9.11
+                | Method.Method(Access.Public, _, _, _, _) ->
+                    Method.applyMethod method obj args |> ignore
+                    ExpVal.Obj obj
+                | _ -> failwith "initialize method must be public"
             | Exp.Send (obj, methodName, rands) ->  // Section 9.3
                 let objVal = Exp.valueOf env obj |> ExpVal.toObj
+                let className = Obj.toClassName objVal
                 let method = MethodEnv.findMethod (Obj.toClassName objVal) methodName
-                let args = rands |> List.map (Exp.valueOf env)
-                Method.applyMethod method objVal args
+                match (obj, method) with  // Exercise 9.11
+                | _, Method.Method(_, _, _, hostname, _) when hostname = className -> 
+                    let args = rands |> List.map (Exp.valueOf env)
+                    Method.applyMethod method objVal args
+                | Exp.Self, Method.Method(Access.Protected, _, _, _, _) | _, Method.Method(Access.Public, _, _, _, _) ->
+                    let args = rands |> List.map (Exp.valueOf env)
+                    Method.applyMethod method objVal args
+                | _ -> failwith "Method must be public"
             | Exp.Super (methodName, rands) ->      // Section 9.3
                 let self = Env.apply "%self" env |> DenVal.toExpVal |> ExpVal.toObj
                 let super = Env.apply "%super" env |> DenVal.toExpVal |> ExpVal.toObj |> Obj.toClassName
@@ -523,7 +540,7 @@ and Exp =
 
 // Section 9.3
 and MethodDecl =
-    | MethodDecl of methodName:Var * parameters:Vars * body:Exp
+    | MethodDecl of access:Access * methodName:Var * parameters:Vars * body:Exp
 
 // Section 9.3
 and ClassDecl =

@@ -156,7 +156,17 @@ let objectExp =
         fieldSetExp
     ]
 
-let methodDecl = skipString "method" >>. ws >>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>>. pexp |>> (fun ((var, vars), exp) -> MethodDecl.MethodDecl(var, vars, exp))
+let privateAccess = skipString "private" |>> (fun _ -> Access.Private)
+let protectedAccess = skipString "protected" |>> (fun _ -> Access.Protected)
+let publicAccess = skipString "public" |>> (fun _ -> Access.Public)
+let access =
+    choice [
+        privateAccess
+        protectedAccess
+        publicAccess
+    ]
+
+let methodDecl = (access .>> ws .>> skipString "method" .>> ws .>>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>>. pexp) |>> (fun (((access, var), vars), exp) -> MethodDecl.MethodDecl(access, var, vars, exp))
 
 let classDecl = skipString "class" >>. ws >>. pvar .>> ws .>> skipString "extends" .>> ws .>>. pvar .>> ws .>>. many (skipString "field" >>. ws >>. pvar .>> ws) .>>. many (methodDecl .>> ws) |>> (fun (((className, superClassName), fields), methods) -> ClassDecl.ClassDecl(className, superClassName, fields, methods))
 
