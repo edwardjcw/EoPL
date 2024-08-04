@@ -102,8 +102,8 @@ and MethodEnv() =               // Section 9.4.4
         newEnv
     member this.initializeMethodEnv methods className (fieldNames: Vars) =
         methodEnv <- Map.empty
-        methods |> List.iter (fun (MethodDecl(access, methodName, parameters, body)) -> 
-            let newMethod = Method.Method(access, parameters, body, className, fieldNames)      // Exercise 9.5
+        methods |> List.iter (fun (MethodDecl(final, access, methodName, parameters, body)) -> 
+            let newMethod = Method.Method(final, access, parameters, body, className, fieldNames)      // Exercise 9.5
             methodEnv <- methodEnv.Add(methodName, newMethod))
         this
     member _.tryGetMethod methodName =
@@ -118,7 +118,11 @@ and MethodEnv() =               // Section 9.4.4
     static member mergeMethodEnv superMethodEnv (newMethodEnv : MethodEnv) =
         let mergedMethodEnv = MethodEnv()
         superMethodEnv.copyOfEnv |> Map.iter (fun k v -> mergedMethodEnv.add k v)
-        newMethodEnv.copyOfEnv |> Map.iter (fun k v -> mergedMethodEnv.add k v)
+        newMethodEnv.copyOfEnv |> Map.iter (fun k v -> 
+            let currentMethod = mergedMethodEnv.tryGetMethod k
+            match currentMethod with
+            | Some(Method.Method(Some(Final.Final), _, _, _, _, _)) -> failwith $"Method {k} is final and cannot be overridden." // Exercise 9.13
+            | _ -> mergedMethodEnv.add k v)
         mergedMethodEnv
 
 // ExpVal = INT + BOOL + LIST + PROC + MutPair + ArrVal + REF + Thunk + Obj + Str + UNIT
@@ -231,9 +235,9 @@ and Obj =                               // Section 9.3
             | None -> failwith $"Field {fieldName} not found in class {className} or not public"
 
 and Method =                            // Section 9.3
-    | Method of access:Access * Vars * body:Exp * className:Var * fieldNames:Vars
+    | Method of final:Final option * access:Access * Vars * body:Exp * className:Var * fieldNames:Vars
     with
-        static member applyMethod (Method.Method(_, vars, body, className, fieldNames)) self args =
+        static member applyMethod (Method.Method(_, _, vars, body, className, fieldNames)) self args =
             if (fieldNames |> List.length) > ((Obj.toFields self) |> List.length) then failwith "Method.applyMethod: there are more fieldNames than self fields, likely due to incorrect access levels." // Exercise 9.12
             let env1 = Env.ExtendStar(fieldNames, (Obj.toFields self), Env.Empty)
             let superName = Class.toSuperName (ClassEnv.lookup className)  // Exercise 9.5
@@ -252,6 +256,9 @@ and Access =                            // Exercise 9.11
     | Public
     | Protected
     | Private
+
+and Final =                             // Exercise 9.13
+    | Final
 
 and Exp =
     | Const of num:int
@@ -507,7 +514,7 @@ and Exp =
                 let obj = Obj.newObj className
                 let method = MethodEnv.findMethod className "initialize"
                 match method with   // Exercise 9.11
-                | Method.Method(Access.Public, _, _, _, _) ->
+                | Method.Method(_, Access.Public, _, _, _, _) ->
                     Method.applyMethod method obj args |> ignore
                     ExpVal.Obj obj
                 | _ -> failwith "initialize method must be public"
@@ -516,10 +523,10 @@ and Exp =
                 let className = Obj.toClassName objVal
                 let method = MethodEnv.findMethod (Obj.toClassName objVal) methodName
                 match (obj, method) with  // Exercise 9.11
-                | _, Method.Method(_, _, _, hostname, _) when hostname = className -> 
+                | _, Method.Method(_, _, _, _, hostname, _) when hostname = className -> 
                     let args = rands |> List.map (Exp.valueOf env)
                     Method.applyMethod method objVal args
-                | Exp.Self, Method.Method(Access.Protected, _, _, _, _) | _, Method.Method(Access.Public, _, _, _, _) ->
+                | Exp.Self, Method.Method(_, Access.Protected, _, _, _, _) | _, Method.Method(_, Access.Public, _, _, _, _) ->
                     let args = rands |> List.map (Exp.valueOf env)
                     Method.applyMethod method objVal args
                 | _ -> failwith "Method must be public"
@@ -546,7 +553,7 @@ and Exp =
 
 // Section 9.3
 and MethodDecl =
-    | MethodDecl of access:Access * methodName:Var * parameters:Vars * body:Exp
+    | MethodDecl of final:Final option * access:Access * methodName:Var * parameters:Vars * body:Exp
 
 // Section 9.3
 and ClassDecl =

@@ -156,6 +156,8 @@ let objectExp =
         fieldSetExp
     ]
 
+let finalModifier = skipString "final" |>> (fun _ -> Final.Final)
+
 let privateAccess = skipString "private" |>> (fun _ -> Access.Private)
 let protectedAccess = skipString "protected" |>> (fun _ -> Access.Protected)
 let publicAccess = skipString "public" |>> (fun _ -> Access.Public)
@@ -166,7 +168,7 @@ let access =
         publicAccess
     ]
 
-let methodDecl = (access .>> ws .>> skipString "method" .>> ws .>>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>>. pexp) |>> (fun (((access, var), vars), exp) -> MethodDecl.MethodDecl(access, var, vars, exp))
+let methodDecl = ((opt finalModifier) .>> ws .>>. access .>> ws .>> skipString "method" .>> ws .>>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>>. pexp) |>> (fun ((((final, access), var), vars), exp) -> MethodDecl.MethodDecl(final, access, var, vars, exp))
 
 let classDecl = 
     skipString "class" >>. ws >>. pvar .>> ws .>> skipString "extends" .>> ws .>>. pvar .>> ws .>>. 
