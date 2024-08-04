@@ -112,7 +112,7 @@ let ``parse Exercise 9.1(1)`` () =
     let programText = 
         "
             class queue extends object
-                field q
+                public field q
                 public method initialize () set q = emptylist
                 public method empty () null?(q)
                 public method enqueue (x) set q = cons(x,q)
@@ -146,8 +146,8 @@ let ``parse Exercise 9.1(2)`` () =
     let programText = 
         "
             class queue extends object
-                field q
-                field count
+                public field q
+                public field count
                 public method initialize () 
                    begin
                       set q = emptylist;
@@ -191,9 +191,9 @@ let ``parse Exercise 9.1(3)`` () =
     let programText = 
         "
             class queue extends object
-                field q
-                field count
-                field counter
+                public field q
+                public field count
+                public field counter
                 public method initialize (sCounter) 
                    begin
                       set q = emptylist;

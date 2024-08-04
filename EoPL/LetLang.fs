@@ -64,20 +64,21 @@ and Store() =
 
 and ClassEnv() =                        // Section 9.4.3
     static let mutable classEnv = Map<Var, Class> []
-    static let appendFieldNames (superFields: Vars) (newFields: Vars) = 
+    static let appendFieldNames (superFields: (Access * Var) list) (newFields: (Access * Var) list) = 
         let rec looper superFields1 result = 
             match superFields1 with
             | [] -> (result |> List.rev) @ newFields
-            | f::rest -> 
-                if newFields |> List.exists (fun x -> x = f) then 
-                    let freshIdentifier = f + "%shadowed"
-                    looper rest (freshIdentifier::result)
-                else looper rest (f::result)
+            | (a,v)::rest -> 
+                if newFields |> List.exists (fun (_,y) -> y = v) then 
+                    let freshIdentifier = v + "%shadowed"
+                    looper rest ((a,freshIdentifier)::result)
+                else if a <> Access.Private then looper rest ((a,v)::result)
+                else looper rest result // Remove private fields Exercise 9.12
         looper superFields []
     static let initializeClassDecl (ClassDecl(className, superName, fieldNames, methods)) =
         let fieldNames1 = appendFieldNames (Class.toFieldNames (ClassEnv.lookup superName)) fieldNames
         let superMethodEnv = Class.toMethodEnv (ClassEnv.lookup superName)
-        let newMethodEnv = MethodEnv().initializeMethodEnv methods className fieldNames1        // Exercise 9.5
+        let newMethodEnv = MethodEnv().initializeMethodEnv methods className (fieldNames1 |> List.map snd)        // Exercise 9.5
         let mergedMethodEnv = MethodEnv.mergeMethodEnv superMethodEnv newMethodEnv
         let newClass = Class.Class(Some superName, fieldNames1, mergedMethodEnv)
         classEnv <- classEnv.Add(className, newClass)
@@ -204,7 +205,7 @@ and Obj =                               // Section 9.3
         static member toFields = function | Obj(_, fields) -> fields | _ -> failwith "Expected Obj. Bad transform."
 
         static member newObj className =
-            let fieldNames = Class.toFieldNames (ClassEnv.lookup className)
+            let fieldNames = ClassEnv.lookup className |> Class.toFieldNames |> List.map snd
             let fields = fieldNames |> List.map (fun f -> Store.newRef (ExpVal.List [ExpVal.Str "uninitializedField"; ExpVal.Str f]))
             Obj.Obj(className, fields)
         static member instanceOf obj className =
@@ -217,18 +218,23 @@ and Obj =                               // Section 9.3
                     | None -> false
             looper (Obj.toClassName obj)
         static member fieldRef (Obj.Obj(className, fields)) fieldName =  // Exercise 9.8
-            let fieldNames = Class.toFieldNames (ClassEnv.lookup className)
-            let index = fieldNames |> List.findIndex (fun f -> f = fieldName)
-            Store.deRef (fields.[index])
+            let fieldNames = ClassEnv.lookup className |> Class.toFieldNames |> List.filter (fun (access, _) -> access = Access.Public) |> List.map snd
+            let index = fieldNames |> List.tryFindIndex (fun f -> f = fieldName)
+            match index with
+            | Some(i) -> Store.deRef (fields.[i])
+            | None -> failwith $"Field {fieldName} not found in class {className} or not public"
         static member fieldSet (Obj.Obj(className, fields)) fieldName value =  // Exercise 9.8
-            let fieldNames = Class.toFieldNames (ClassEnv.lookup className)
-            let index = fieldNames |> List.findIndex (fun f -> f = fieldName)
-            Store.setRef (fields.[index]) value
+            let fieldNames = ClassEnv.lookup className |> Class.toFieldNames |> List.filter (fun (access, _) -> access = Access.Public) |> List.map snd
+            let index = fieldNames |> List.tryFindIndex (fun f -> f = fieldName)
+            match index with
+            | Some(i) -> Store.setRef (fields.[i]) value
+            | None -> failwith $"Field {fieldName} not found in class {className} or not public"
 
 and Method =                            // Section 9.3
     | Method of access:Access * Vars * body:Exp * className:Var * fieldNames:Vars
     with
         static member applyMethod (Method.Method(_, vars, body, className, fieldNames)) self args =
+            if (fieldNames |> List.length) > ((Obj.toFields self) |> List.length) then failwith "Method.applyMethod: there are more fieldNames than self fields, likely due to incorrect access levels." // Exercise 9.12
             let env1 = Env.ExtendStar(fieldNames, (Obj.toFields self), Env.Empty)
             let superName = Class.toSuperName (ClassEnv.lookup className)  // Exercise 9.5
             let env2 = Env.ExtendWithSelfAndSuper(self, superName, env1)
@@ -236,7 +242,7 @@ and Method =                            // Section 9.3
             Exp.valueOf env3 body
 
 and Class =                             // Section 9.4.3
-    | Class of superName:Var option * fieldNames:Vars * methodEnv:MethodEnv
+    | Class of superName:Var option * fieldNames:(Access * Var) list * methodEnv:MethodEnv
     with
         static member toSuperName = function | Class(superName, _, _) -> superName | _ -> failwith "Expected Class. Bad transform."
         static member toFieldNames = function | Class(_, fieldNames, _) -> fieldNames | _ -> failwith "Expected Class. Bad transform."
@@ -544,7 +550,7 @@ and MethodDecl =
 
 // Section 9.3
 and ClassDecl =
-    | ClassDecl of className:Var * superName:Var * fieldNames:Vars * methods:MethodDecl list
+    | ClassDecl of className:Var * superName:Var * fieldNames:(Access * Var) list * methods:MethodDecl list
 
 [<RequireQualifiedAccess>]
 type Program =

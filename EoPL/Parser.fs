@@ -168,7 +168,13 @@ let access =
 
 let methodDecl = (access .>> ws .>> skipString "method" .>> ws .>>. pvar .>> ws .>> skipString "(" .>> ws .>>. sepBy pvar (skipString "," .>> ws) .>> ws .>> skipString ")" .>> ws .>>. pexp) |>> (fun (((access, var), vars), exp) -> MethodDecl.MethodDecl(access, var, vars, exp))
 
-let classDecl = skipString "class" >>. ws >>. pvar .>> ws .>> skipString "extends" .>> ws .>>. pvar .>> ws .>>. many (skipString "field" >>. ws >>. pvar .>> ws) .>>. many (methodDecl .>> ws) |>> (fun (((className, superClassName), fields), methods) -> ClassDecl.ClassDecl(className, superClassName, fields, methods))
+let classDecl = 
+    skipString "class" >>. ws >>. pvar .>> ws .>> skipString "extends" .>> ws .>>. pvar .>> ws .>>. 
+    many (attempt (access .>> ws .>> skipString "field" .>> ws .>>. pvar .>> ws)) .>>. 
+    many (methodDecl .>> ws) |>> 
+    (fun (((className, superClassName), fields), methods) -> 
+        ClassDecl.ClassDecl(className, superClassName, fields, methods))
+
 
 let pprogram : Parser<Program, unit> = ws >>. many classDecl .>> ws .>>. pexp |>> Program.A
 do pexpRef.Value <- 

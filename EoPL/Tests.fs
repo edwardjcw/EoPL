@@ -245,8 +245,8 @@ let ``parse class method parameters`` () =
     let programText = 
         "
             class c1 extends object
-                field x
-                field y
+                public field x
+                public field y
                 public method initialize (initx, inity)
                     begin
                      set x = initx;
@@ -271,12 +271,12 @@ let ``parse class inheritance1`` () =
     let programText = 
         "
             class c1 extends object
-                field x
+                public field x
                 public method initialize (initx)
                     set x = initx
                 public method getX () x
             class c2 extends c1
-                field y
+                public field y
                 public method initialize (initx, inity)
                     begin
                      super initialize(initx);
@@ -331,10 +331,10 @@ let ``parse fieldref and fieldset`` () =
     let programText = 
         "
             class c1 extends object
-                field x
+                public field x
                 public method initialize () set x = 5
             class c2 extends c1
-                field y
+                public field y
                 public method initialize ()
                    begin 
                       super initialize();
@@ -377,6 +377,33 @@ let ``parse protected method`` () =
         "
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 12)
+
+let ``parse private field`` () =
+    let programText = 
+        "
+            class c1 extends object
+                private field x
+                public method initialize () set x = 5
+                public method getX () x
+            let [o1 = new c1()]
+            in send o1 getX()
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 5)
+
+let ``parse protected field`` () =
+    let programText = 
+        "
+            class c1 extends object
+                protected field x
+                public method initialize () set x = 5
+            class c2 extends c1
+                public method getX () x
+            let [o2 = new c2()]
+            in send o2 getX()
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 5)
 
 let runTests () =
     let tests = 
@@ -427,6 +454,8 @@ let runTests () =
             ``parse fieldref and fieldset``
             ``parse private method``
             ``parse protected method``
+            ``parse private field``
+            ``parse protected field``
         ]
     tests |> List.iter (fun test -> test())
 
