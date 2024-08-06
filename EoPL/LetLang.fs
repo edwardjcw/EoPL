@@ -75,12 +75,16 @@ and ClassEnv() =                        // Section 9.4.3
                 else if a <> Access.Private then looper rest ((a,v)::result)
                 else looper rest result // Remove private fields Exercise 9.12
         looper superFields []
-    static let initializeClassDecl (ClassDecl(className, superName, fieldNames, methods)) =
+    static let initializeClassDecl (ClassDecl(className, superName, staticFields, fieldNames, methods)) =
         let fieldNames1 = appendFieldNames (Class.toFieldNames (ClassEnv.lookup superName)) fieldNames
         let superMethodEnv = Class.toMethodEnv (ClassEnv.lookup superName)
-        let newMethodEnv = MethodEnv().initializeMethodEnv methods className (fieldNames1 |> List.map snd)        // Exercise 9.5
+        let newMethodEnv = MethodEnv().initializeMethodEnv methods className (staticFields |> List.map fst) (fieldNames1 |> List.map snd)        // Exercise 9.5
         let mergedMethodEnv = MethodEnv.mergeMethodEnv superMethodEnv newMethodEnv
-        let newClass = Class.Class(Some superName, fieldNames1, mergedMethodEnv)
+        let (staticFields1, _) = staticFields |> List.fold (fun (sFields, env) (var, exp) -> 
+            let value = Exp.valueOf env exp
+            let ref = Store.newRef value
+            (sFields @ [ref], Env.Extend(var, ref, env)) ) ([], Env.Empty)
+        let newClass = Class.Class(Some superName, staticFields1, fieldNames1, mergedMethodEnv)
         classEnv <- classEnv.Add(className, newClass)
 
     static member addClass className classDef = classEnv <- classEnv.Add(className, classDef)
@@ -89,7 +93,7 @@ and ClassEnv() =                        // Section 9.4.3
         else failwith $"Class {className} is unknown"
     static member initializeClassEnv classDecls = 
         classEnv <- Map.empty
-        let superObj = Class.Class(None, [], MethodEnv())
+        let superObj = Class.Class(None, [], [], MethodEnv())
         classEnv <- classEnv.Add("object", superObj)
         classDecls |> List.iter initializeClassDecl
 
@@ -100,10 +104,10 @@ and MethodEnv() =               // Section 9.4.4
         let mutable newEnv = Map<Var, Method> []
         methodEnv |> Map.iter (fun k v -> newEnv <- newEnv.Add(k, v))
         newEnv
-    member this.initializeMethodEnv methods className (fieldNames: Vars) =
+    member this.initializeMethodEnv methods className staticFieldNames (fieldNames: Vars) =
         methodEnv <- Map.empty
         methods |> List.iter (fun (MethodDecl(final, access, methodName, parameters, body)) -> 
-            let newMethod = Method.Method(final, access, parameters, body, className, fieldNames)      // Exercise 9.5
+            let newMethod = Method.Method(final, access, parameters, body, className, staticFieldNames, fieldNames)      // Exercise 9.5
             methodEnv <- methodEnv.Add(methodName, newMethod))
         this
     member _.tryGetMethod methodName =
@@ -121,7 +125,7 @@ and MethodEnv() =               // Section 9.4.4
         newMethodEnv.copyOfEnv |> Map.iter (fun k v -> 
             let currentMethod = mergedMethodEnv.tryGetMethod k
             match currentMethod with
-            | Some(Method.Method(Some(Final.Final), _, _, _, _, _)) -> failwith $"Method {k} is final and cannot be overridden." // Exercise 9.13
+            | Some(Method.Method(Some(Final.Final), _, _, _, _, _, _)) -> failwith $"Method {k} is final and cannot be overridden." // Exercise 9.13
             | _ -> mergedMethodEnv.add k v)
         mergedMethodEnv
 
@@ -203,15 +207,17 @@ and Thunk =                             // Section 4.5.2
     | Thunk of Exp * Env
 
 and Obj =                               // Section 9.3
-    | Obj of className:Var * fields:DenVal list
+    | Obj of className:Var * staticFields:DenVal list * fields:DenVal list
     with 
-        static member toClassName = function | Obj(className, _) -> className | _ -> failwith "Expected Obj. Bad transform."
-        static member toFields = function | Obj(_, fields) -> fields | _ -> failwith "Expected Obj. Bad transform."
+        static member toClassName = function | Obj(className, _, _) -> className | _ -> failwith "Expected Obj. Bad transform."
+        static member toFields = function | Obj(_, _, fields) -> fields | _ -> failwith "Expected Obj. Bad transform."
+        static member toStaticFields = function | Obj(_, staticFields, _) -> staticFields | _ -> failwith "Expected Obj. Bad transform."
 
         static member newObj className =
             let fieldNames = ClassEnv.lookup className |> Class.toFieldNames |> List.map snd
             let fields = fieldNames |> List.map (fun f -> Store.newRef (ExpVal.List [ExpVal.Str "uninitializedField"; ExpVal.Str f]))
-            Obj.Obj(className, fields)
+            let staticFields = ClassEnv.lookup className |> Class.toStaticFields
+            Obj.Obj(className, staticFields, fields)
         static member instanceOf obj className =
             let rec looper className1 =
                 if className = className1 then true
@@ -221,13 +227,13 @@ and Obj =                               // Section 9.3
                     | Some(superName) -> looper superName
                     | None -> false
             looper (Obj.toClassName obj)
-        static member fieldRef (Obj.Obj(className, fields)) fieldName =  // Exercise 9.8
+        static member fieldRef (Obj.Obj(className, _, fields)) fieldName =  // Exercise 9.8
             let fieldNames = ClassEnv.lookup className |> Class.toFieldNames |> List.filter (fun (access, _) -> access = Access.Public) |> List.map snd
             let index = fieldNames |> List.tryFindIndex (fun f -> f = fieldName)
             match index with
             | Some(i) -> Store.deRef (fields.[i])
             | None -> failwith $"Field {fieldName} not found in class {className} or not public"
-        static member fieldSet (Obj.Obj(className, fields)) fieldName value =  // Exercise 9.8
+        static member fieldSet (Obj.Obj(className, _, fields)) fieldName value =  // Exercise 9.8
             let fieldNames = ClassEnv.lookup className |> Class.toFieldNames |> List.filter (fun (access, _) -> access = Access.Public) |> List.map snd
             let index = fieldNames |> List.tryFindIndex (fun f -> f = fieldName)
             match index with
@@ -235,22 +241,24 @@ and Obj =                               // Section 9.3
             | None -> failwith $"Field {fieldName} not found in class {className} or not public"
 
 and Method =                            // Section 9.3
-    | Method of final:Final option * access:Access * Vars * body:Exp * className:Var * fieldNames:Vars
+    | Method of final:Final option * access:Access * Vars * body:Exp * className:Var * staticFieldNames:Vars * fieldNames:Vars
     with
-        static member applyMethod (Method.Method(_, _, vars, body, className, fieldNames)) self args =
+        static member applyMethod (Method.Method(_, _, vars, body, className, staticFieldNames, fieldNames)) self args =
             if (fieldNames |> List.length) > ((Obj.toFields self) |> List.length) then failwith "Method.applyMethod: there are more fieldNames than self fields, likely due to incorrect access levels." // Exercise 9.12
-            let env1 = Env.ExtendStar(fieldNames, (Obj.toFields self), Env.Empty)
+            let env = Env.ExtendStar(staticFieldNames, (Obj.toStaticFields self), Env.Empty)
+            let env1 = Env.ExtendStar(fieldNames, (Obj.toFields self), env)
             let superName = Class.toSuperName (ClassEnv.lookup className)  // Exercise 9.5
             let env2 = Env.ExtendWithSelfAndSuper(self, superName, env1)
             let env3 = Env.ExtendStar(vars, (args |> List.map Store.newRef), env2)
             Exp.valueOf env3 body
 
 and Class =                             // Section 9.4.3
-    | Class of superName:Var option * fieldNames:(Access * Var) list * methodEnv:MethodEnv
+    | Class of superName:Var option * staticFields:DenVal list * fieldNames:(Access * Var) list * methodEnv:MethodEnv
     with
-        static member toSuperName = function | Class(superName, _, _) -> superName | _ -> failwith "Expected Class. Bad transform."
-        static member toFieldNames = function | Class(_, fieldNames, _) -> fieldNames | _ -> failwith "Expected Class. Bad transform."
-        static member toMethodEnv = function | Class(_, _, methodEnv) -> methodEnv | _ -> failwith "Expected Class. Bad transform."
+        static member toSuperName = function | Class(superName, _, _, _) -> superName | _ -> failwith "Expected Class. Bad transform."
+        static member toFieldNames = function | Class(_, _, fieldNames, _) -> fieldNames | _ -> failwith "Expected Class. Bad transform."
+        static member toMethodEnv = function | Class(_, _, _, methodEnv) -> methodEnv | _ -> failwith "Expected Class. Bad transform."
+        static member toStaticFields = function | Class(_, staticFields, _, _) -> staticFields | _ -> failwith "Expected Class. Bad transform."
 
 and Access =                            // Exercise 9.11
     | Public
@@ -514,7 +522,7 @@ and Exp =
                 let obj = Obj.newObj className
                 let method = MethodEnv.findMethod className "initialize"
                 match method with   // Exercise 9.11
-                | Method.Method(_, Access.Public, _, _, _, _) ->
+                | Method.Method(_, Access.Public, _, _, _, _, _) ->
                     Method.applyMethod method obj args |> ignore
                     ExpVal.Obj obj
                 | _ -> failwith "initialize method must be public"
@@ -523,10 +531,10 @@ and Exp =
                 let className = Obj.toClassName objVal
                 let method = MethodEnv.findMethod (Obj.toClassName objVal) methodName
                 match (obj, method) with  // Exercise 9.11
-                | _, Method.Method(_, _, _, _, hostname, _) when hostname = className -> 
+                | _, Method.Method(_, _, _, _, hostname, _, _) when hostname = className -> 
                     let args = rands |> List.map (Exp.valueOf env)
                     Method.applyMethod method objVal args
-                | Exp.Self, Method.Method(_, Access.Protected, _, _, _, _) | _, Method.Method(_, Access.Public, _, _, _, _) ->
+                | Exp.Self, Method.Method(_, Access.Protected, _, _, _, _, _) | _, Method.Method(_, Access.Public, _, _, _, _, _) ->
                     let args = rands |> List.map (Exp.valueOf env)
                     Method.applyMethod method objVal args
                 | _ -> failwith "Method must be public"
@@ -557,7 +565,7 @@ and MethodDecl =
 
 // Section 9.3
 and ClassDecl =
-    | ClassDecl of className:Var * superName:Var * fieldNames:(Access * Var) list * methods:MethodDecl list
+    | ClassDecl of className:Var * superName:Var * staticFields:(Var * Exp) list * fieldNames:(Access * Var) list * methods:MethodDecl list
 
 [<RequireQualifiedAccess>]
 type Program =

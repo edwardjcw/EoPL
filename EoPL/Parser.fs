@@ -172,10 +172,11 @@ let methodDecl = ((opt finalModifier) .>> ws .>>. access .>> ws .>> skipString "
 
 let classDecl = 
     skipString "class" >>. ws >>. pvar .>> ws .>> skipString "extends" .>> ws .>>. pvar .>> ws .>>. 
+    many (skipString "static" >>. ws >>. pvar .>> ws .>> skipString "=" .>> ws .>>. pexp .>> ws) .>>.
     many (attempt (access .>> ws .>> skipString "field" .>> ws .>>. pvar .>> ws)) .>>. 
     many (methodDecl .>> ws) |>> 
-    (fun (((className, superClassName), fields), methods) -> 
-        ClassDecl.ClassDecl(className, superClassName, fields, methods))
+    (fun ((((className, superClassName), staticFields), fields), methods) -> 
+        ClassDecl.ClassDecl(className, superClassName, staticFields, fields, methods))
 
 
 let pprogram : Parser<Program, unit> = ws >>. many classDecl .>> ws .>>. pexp |>> Program.A

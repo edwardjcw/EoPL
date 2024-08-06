@@ -426,6 +426,27 @@ let ``parse final method`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.List [ExpVal.Num 5; ExpVal.Num 10])
 
+let ``parse static field`` () =
+    let programText = 
+        "
+            class c1 extends object
+                static r = 10
+                static s = -(r,10)
+                private field k
+                public method initialize () 
+                   begin 
+                      set k = 1;
+                      set s = +(s, k)
+                   end
+                public method getS () s
+            let [o1 = new c1()]
+                [o2 = new c1()]
+                [o3 = new c1()]
+            in send o1 getS()
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.Num 3)
+
 let runTests () =
     let tests = 
         [ 
@@ -478,6 +499,7 @@ let runTests () =
             ``parse private field``
             ``parse protected field``
             ``parse final method``
+            ``parse static field``
         ]
     tests |> List.iter (fun test -> test())
 
