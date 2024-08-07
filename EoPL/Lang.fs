@@ -98,7 +98,7 @@ and ClassEnv() =                        // Section 9.4.3
         classDecls |> List.iter initializeClassDecl
 
 and MethodEnv() =               // Section 9.4.4
-    let mutable methodEnv = Map<Var, Method> []
+    let mutable methodEnv = Map<Var, Method> []  // Exercise 9.21
     member _.add methodName method = methodEnv <- methodEnv.Add(methodName, method)
     member _.copyOfEnv = 
         let mutable newEnv = Map<Var, Method> []
@@ -109,7 +109,7 @@ and MethodEnv() =               // Section 9.4.4
         methods |> List.iter (fun (MethodDecl(final, access, methodName, parameters, body)) -> 
             let newMethod = Method.Method(final, access, parameters, body, className, staticFieldNames, fieldNames)      // Exercise 9.5
             let numOfParameters = parameters |> List.length
-            let signature = $"{methodName}%%{numOfParameters}" // Exercise 9.16
+            let signature = $"{methodName}:@{numOfParameters}" // Exercise 9.16, 9.22
             methodEnv <- methodEnv.Add(signature, newMethod))
         this
     member _.tryGetMethod methodName =
@@ -118,7 +118,7 @@ and MethodEnv() =               // Section 9.4.4
     static member findMethod className methodName numOfArgs =
         let classDef = ClassEnv.lookup className
         let (methodEnv: MethodEnv) = Class.toMethodEnv classDef
-        let signature = $"{methodName}%%{numOfArgs}"    // Exercise 9.16
+        let signature = $"{methodName}:@{numOfArgs}"    // Exercise 9.16, 9.22
         match methodEnv.tryGetMethod signature with
         | Some(method) -> method
         | None -> failwith $"Method {signature} not found in class {className}"
