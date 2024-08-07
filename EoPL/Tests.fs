@@ -447,6 +447,28 @@ let ``parse static field`` () =
     let program = parseProgram programText
     program |> should equal (ExpVal.Num 3)
 
+let ``parse overload method`` () =
+    let programText = 
+        "
+            class c1 extends object
+                protected field x
+                public method initialize () set x = 5
+                public method initialize (y) set x = y
+                public method getX () x
+                public method addToX () +(x,1)
+                public method addToX (y) +(x,+(y,1))
+            class c2 extends c1
+                public method addToX (y) +(x,y)
+            let [o1 = new c1()]
+                [o2 = new c2(10)]
+            in list(send o1 getX(), 
+                    send o2 getX(),
+                    send o1 addToX(),
+                    send o2 addToX(2))
+        "
+    let program = parseProgram programText
+    program |> should equal (ExpVal.List [ExpVal.Num 5; ExpVal.Num 10; ExpVal.Num 6; ExpVal.Num 12])
+
 let runTests () =
     let tests = 
         [ 
@@ -500,6 +522,7 @@ let runTests () =
             ``parse protected field``
             ``parse final method``
             ``parse static field``
+            ``parse overload method``
         ]
     tests |> List.iter (fun test -> test())
 

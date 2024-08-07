@@ -108,17 +108,20 @@ and MethodEnv() =               // Section 9.4.4
         methodEnv <- Map.empty
         methods |> List.iter (fun (MethodDecl(final, access, methodName, parameters, body)) -> 
             let newMethod = Method.Method(final, access, parameters, body, className, staticFieldNames, fieldNames)      // Exercise 9.5
-            methodEnv <- methodEnv.Add(methodName, newMethod))
+            let numOfParameters = parameters |> List.length
+            let signature = $"{methodName}%%{numOfParameters}" // Exercise 9.16
+            methodEnv <- methodEnv.Add(signature, newMethod))
         this
     member _.tryGetMethod methodName =
         if methodEnv.ContainsKey(methodName) then Some(methodEnv.[methodName])
         else None
-    static member findMethod className methodName =
+    static member findMethod className methodName numOfArgs =
         let classDef = ClassEnv.lookup className
         let (methodEnv: MethodEnv) = Class.toMethodEnv classDef
-        match methodEnv.tryGetMethod methodName with
+        let signature = $"{methodName}%%{numOfArgs}"    // Exercise 9.16
+        match methodEnv.tryGetMethod signature with
         | Some(method) -> method
-        | None -> failwith $"Method {methodName} not found in class {className}"
+        | None -> failwith $"Method {signature} not found in class {className}"
     static member mergeMethodEnv superMethodEnv (newMethodEnv : MethodEnv) =
         let mergedMethodEnv = MethodEnv()
         superMethodEnv.copyOfEnv |> Map.iter (fun k v -> mergedMethodEnv.add k v)
@@ -520,7 +523,7 @@ and Exp =
             | Exp.New (className, rands) ->         // Section 9.3
                 let args = rands |> List.map (Exp.valueOf env)
                 let obj = Obj.newObj className
-                let method = MethodEnv.findMethod className "initialize"
+                let method = MethodEnv.findMethod className "initialize" (args |> List.length) // Exercise 9.16
                 match method with   // Exercise 9.11
                 | Method.Method(_, Access.Public, _, _, _, _, _) ->
                     Method.applyMethod method obj args |> ignore
@@ -529,7 +532,7 @@ and Exp =
             | Exp.Send (obj, methodName, rands) ->  // Section 9.3
                 let objVal = Exp.valueOf env obj |> ExpVal.toObj
                 let className = Obj.toClassName objVal
-                let method = MethodEnv.findMethod (Obj.toClassName objVal) methodName
+                let method = MethodEnv.findMethod (Obj.toClassName objVal) methodName (rands |> List.length) // Exercise 9.16
                 match (obj, method) with  // Exercise 9.11
                 | _, Method.Method(_, _, _, _, hostname, _, _) when hostname = className -> 
                     let args = rands |> List.map (Exp.valueOf env)
@@ -541,7 +544,7 @@ and Exp =
             | Exp.Super (methodName, rands) ->      // Section 9.3
                 let self = Env.apply "%self" env |> DenVal.toExpVal |> ExpVal.toObj
                 let super = Env.apply "%super" env |> DenVal.toExpVal |> ExpVal.toObj |> Obj.toClassName
-                let method = MethodEnv.findMethod super methodName
+                let method = MethodEnv.findMethod super methodName (rands |> List.length) // Exercise 9.16
                 let args = rands |> List.map (Exp.valueOf env)
                 Method.applyMethod method self args
             | Exp.Self ->                          // Section 9.3
