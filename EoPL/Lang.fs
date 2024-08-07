@@ -1,4 +1,4 @@
-﻿module LetLang
+﻿module Lang
 
 type Var = string
 type Vars = Var list

@@ -1,7 +1,7 @@
 ﻿module Parser
 
 open FParsec
-open LetLang
+open Lang
 
 let str = pstring
 let ws = spaces

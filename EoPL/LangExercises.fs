@@ -2,7 +2,7 @@
 
 open FsUnit
 open Parser
-open LetLang
+open Lang
 
 let ``parse Exercise 3.23`` () =
     let programText = 

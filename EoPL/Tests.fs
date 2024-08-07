@@ -2,7 +2,7 @@
 
 open FsUnit
 open Parser
-open LetLang
+open Lang
 
 let ``parse const`` () =
     let programText = "1"
